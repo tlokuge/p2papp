@@ -1,36 +1,23 @@
-/*
- * UI.java
- *
- * Created on November 25, 2010, 10:48 AM
- */
-
 package datacomm;
+
 import java.net.*;
 import java.io.*;
-import javax.imageio.*; 
+import javax.imageio.*;
 import java.awt.*;
-
-
-
-
-
-
-
 
 /**
  *
  * @author  l3whalen
  */
+public class UI extends javax.swing.JFrame
+{
 
-
-
-public class UI extends javax.swing.JFrame {
-    
     /** Creates new form UI */
-    public UI() {
+    public UI()
+    {
         initComponents();
     }
-    
+
     /** This method is called from within the constructor to
      * initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is
@@ -184,115 +171,124 @@ public class UI extends javax.swing.JFrame {
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
-String crlf = System.getProperty("line.separator"); 
 
+    private String getURL()
+    {
+        String URL = "";
+        try
+        {
+            InetAddress addr = InetAddress.getLocalHost();
+            // Get hostname
+            String hostname = addr.getHostName();
+            URL = hostname;
+        } catch (UnknownHostException e)
+        {
+        }
+        return URL;
+    }
 
-private String getURL(){
+    private void setTimeout()
+    {
+    }
 
-    String URL ="";
-    try {
-        InetAddress addr = InetAddress.getLocalHost();
-        // Get hostname
-        String hostname = addr.getHostName();
-        URL = hostname;
-    } catch (UnknownHostException e) {}
-    return URL;
-}
+    private void startTimeout()
+    {
+    }
 
-private void setTimeout(){
+    private void stopTimeout()
+    {
+    }
 
+    private String getIP()
+    {
 
-}
+        String ipString = "";
+        try
+        {
+            InetAddress addr = InetAddress.getLocalHost();
+            // Get IP Address
+            byte[] ipAddr = addr.getAddress();
+            ipString = addr.getHostAddress();
+        } catch (UnknownHostException e)
+        {
+        }
+        return ipString;
+    }
 
-private void startTimeout(){
+    private void UDPConnect(String message)
+    {
+        try
+        {
 
-}
+            InetAddress ia = InetAddress.getByName("LocalHost");
+            int port = Integer.parseInt("40110");
 
-private void stopTimeout(){
-   
+            DatagramSocket ds = new DatagramSocket();
+            byte buffer[] = message.getBytes();
 
-}
+            DatagramPacket dp = new DatagramPacket(buffer, buffer.length, ia, port);
 
-private String getIP(){
+            ds.send(dp);
+        } catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+    }
 
-    String ipString ="";
-    try {
-        InetAddress addr = InetAddress.getLocalHost();
-        // Get IP Address
-        byte[] ipAddr = addr.getAddress();
-        ipString = addr.getHostAddress();
-    } catch (UnknownHostException e) {}
-    return ipString;
-}
-
-private void UDPConnect(String message)
-{		
-    try {
-
-             InetAddress ia=InetAddress.getByName("LocalHost");
-             int port=Integer.parseInt("40110");
-
-             DatagramSocket ds=new DatagramSocket();
-             byte buffer[]=message.getBytes();
-
-             DatagramPacket dp=new DatagramPacket(buffer,buffer.length,ia,port);
-
-             ds.send(dp);
-          }
-          catch(Exception e) {
-             e.printStackTrace();
-          }
-}
-
-
-    
 private void InformAndUpdateActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_InformAndUpdateActionPerformed
-    
+
     Image image = null;
-    try {
+    try
+    {
 
-      String filename = Uploadable.getText();
-      File f = new File(filename);
-      image = ImageIO.read(f);
+        String filename = Uploadable.getText();
+        File f = new File(filename);
+        image = ImageIO.read(f);
 
 
-      Long length = f.length();
-    
-    // after we get this working, add multiple file names with the split function on ;
-    
-     String method = "Inform and Update";
-     String URLversion = getURL() + " " + getIP();
-    
-     String requestLine = method + " " + URLversion + crlf;
-     String headerLine = filename + " " + length.toString() + crlf;
-     String entityBody = "";
-    
-     String message = requestLine + headerLine + crlf + entityBody;
-    // All that remains is the entity body: Is that like the content inside the file? The directory listing? Were only sending one picture... So I  dont know
-   
-     System.out.println(message);
-     UDPConnect(message);
-    }catch(IOException e){
-    
+        Long length = f.length();
+
+        // after we get this working, add multiple file names with the split function on ;
+
+        String method = "InformAndUpdate";
+        String URLversion = getURL() + " " + getIP();
+
+        String requestLine = method + " " + URLversion + CRLF;
+        String headerLine = filename + " " + length.toString() + CRLF;
+        String entityBody = "";
+
+        String message = requestLine + headerLine + CRLF + entityBody;
+        // All that remains is the entity body: Is that like the content inside the file? The directory listing? Were only sending one picture... So I  dont know
+
+        System.out.println(message);
+        UDPConnect(message);
+    } catch (IOException e)
+    {
         System.out.println("File not found");
     }
-    
+
 }//GEN-LAST:event_InformAndUpdateActionPerformed
 
 private void QueryForContentActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_QueryForContentActionPerformed
 // TODO add your handling code here:
 }//GEN-LAST:event_QueryForContentActionPerformed
-    
+
     /**
      * @param args the command line arguments
      */
-    public static void main(String args[]) {
-        java.awt.EventQueue.invokeLater(new Runnable() {
-            public void run() {
+    public static void main(String args[])
+    {
+        java.awt.EventQueue.invokeLater(new Runnable()
+        {
+
+            public void run()
+            {
                 new UI().setVisible(true);
             }
         });
     }
+    
+    private final String CRLF = System.getProperty("line.separator");
     
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton DownloadContent;
@@ -314,5 +310,4 @@ private void QueryForContentActionPerformed(java.awt.event.ActionEvent evt) {//G
     private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JTextField jTextField2;
     // End of variables declaration//GEN-END:variables
-    
 }
