@@ -4,6 +4,7 @@ import java.net.*;
 import java.io.*;
 import javax.imageio.*;
 import java.awt.*;
+import java.util.Random;
 
 /**
  *
@@ -15,6 +16,8 @@ public class UI extends javax.swing.JFrame
     /** Creates new form UI */
     public UI()
     {
+        Random gen = new Random();
+        listen_port = 16000 + gen.nextInt(1000);
         initComponents();
     }
 
@@ -85,6 +88,11 @@ public class UI extends javax.swing.JFrame
         jLabel7.setText("Search Results:");
 
         Exit.setText("Exit");
+        Exit.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                ExitActionPerformed(evt);
+            }
+        });
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
@@ -172,20 +180,6 @@ public class UI extends javax.swing.JFrame
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
-    private String getURL()
-    {
-        String URL = "";
-        try
-        {
-            InetAddress addr = InetAddress.getLocalHost();
-            // Get hostname
-            String hostname = addr.getHostName();
-            URL = hostname;
-        } catch (UnknownHostException e)
-        {
-        }
-        return URL;
-    }
 
     private void setTimeout()
     {
@@ -199,48 +193,43 @@ public class UI extends javax.swing.JFrame
     {
     }
 
-    private String getIP()
+    private void waitForAck() throws SocketException, IOException
     {
+        System.err.println("CLIENT: Waiting for ACK on port: " + listen_port);
+        DatagramSocket ds = new DatagramSocket(listen_port);
+        byte buffer[] = new byte[128];
 
-        String ipString = "";
-        try
-        {
-            InetAddress addr = InetAddress.getLocalHost();
-            // Get IP Address
-            byte[] ipAddr = addr.getAddress();
-            ipString = addr.getHostAddress();
-        } catch (UnknownHostException e)
-        {
-        }
-        return ipString;
+        DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+        ds.receive(packet);
+        ds.close();
+        String str = new String(packet.getData());
+        System.out.println("CLIENT: RECEIVED PACKET: " + str);
     }
-
-    private void UDPConnect(String message)
+    
+    private void UDPSend(DatagramPacket packet)
     {
         try
         {
-
-            InetAddress ia = InetAddress.getByName("LocalHost");
-            int port = Integer.parseInt("40110");
-
-            DatagramSocket ds = new DatagramSocket();
-            byte buffer[] = message.getBytes();
-
-            DatagramPacket dp = new DatagramPacket(buffer, buffer.length, ia, port);
-
-            ds.send(dp);
-        } catch (Exception e)
+            DatagramSocket ds = new DatagramSocket(listen_port);
+            ds.send(packet);
+            ds.close();
+            waitForAck();
+        } catch (Exception ex)
         {
-            e.printStackTrace();
+            System.err.println(ex);
         }
     }
 
+    private void sendExitPacket()
+    {
+
+    }
+    
 private void InformAndUpdateActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_InformAndUpdateActionPerformed
 
     Image image = null;
     try
     {
-
         String filename = Uploadable.getText();
         File f = new File(filename);
         image = ImageIO.read(f);
@@ -250,28 +239,26 @@ private void InformAndUpdateActionPerformed(java.awt.event.ActionEvent evt) {//G
 
         // after we get this working, add multiple file names with the split function on ;
 
-        String method = "InformAndUpdate";
-        String URLversion = getURL() + " " + getIP();
-
-        String requestLine = method + " " + URLversion + CRLF;
-        String headerLine = filename + " " + length.toString() + CRLF;
-        String entityBody = "";
-
-        String message = requestLine + headerLine + CRLF + entityBody;
-        // All that remains is the entity body: Is that like the content inside the file? The directory listing? Were only sending one picture... So I  dont know
-
-        System.out.println(message);
-        UDPConnect(message);
-    } catch (IOException e)
+        String header = filename + " " + length.toString();
+        UDPSend(Packet.buildClientPacket(Packet.PacketType.INFORM_AND_UPDATE, header, ""));
+    }
+    catch (IOException e)
     {
         System.out.println("File not found");
     }
 
 }//GEN-LAST:event_InformAndUpdateActionPerformed
 
+
 private void QueryForContentActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_QueryForContentActionPerformed
 // TODO add your handling code here:
 }//GEN-LAST:event_QueryForContentActionPerformed
+
+private void ExitActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_ExitActionPerformed
+{//GEN-HEADEREND:event_ExitActionPerformed
+    sendExitPacket();
+    System.exit(0);
+}//GEN-LAST:event_ExitActionPerformed
 
     /**
      * @param args the command line arguments
@@ -287,9 +274,8 @@ private void QueryForContentActionPerformed(java.awt.event.ActionEvent evt) {//G
             }
         });
     }
-    
+    private int listen_port = 0;
     private final String CRLF = System.getProperty("line.separator");
-    
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton DownloadContent;
     private javax.swing.JButton Exit;
