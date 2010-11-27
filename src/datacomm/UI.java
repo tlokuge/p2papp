@@ -214,7 +214,8 @@ public class UI extends javax.swing.JFrame
             ds.send(packet);
             ds.close();
             waitForAck();
-        } catch (Exception ex)
+        }
+        catch (Exception ex)
         {
             System.err.println(ex);
         }
@@ -222,7 +223,7 @@ public class UI extends javax.swing.JFrame
 
     private void sendExitPacket()
     {
-
+        UDPSend(Packet.buildClientPacket(Packet.PacketType.EXIT, "", ""));
     }
     
 private void InformAndUpdateActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_InformAndUpdateActionPerformed

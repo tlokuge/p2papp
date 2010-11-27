@@ -7,6 +7,8 @@ package datacomm;
 import java.net.*;
 import java.io.*;
 import java.util.ArrayList;
+import java.util.Iterator;
+import javax.swing.*;
 
 class DirectoryListEntry
 {
@@ -23,12 +25,6 @@ class DirectoryListEntry
         this.port = port;
     }
 
-    public String getFileName()
-    {
-        String split[] = file.split("\\");
-        return split[split.length-1];
-    }
-
     public String getFile()    { return file; }
     public String getAddress() { return address; }
     public int getRating()     { return rating; }
@@ -40,7 +36,7 @@ class DirectoryListEntry
     }
 }
 
-class DirectoryServer
+class DirectoryServer extends JFrame
 {
     public final static int BUFSIZE = 128;
     public final static String STATUS_OK  = "200(OK)";
@@ -48,23 +44,62 @@ class DirectoryServer
 
     public ArrayList<DirectoryListEntry> directory;
 
+    private JTextArea list_area;
+
     public DirectoryServer()
     {
+        super();
         directory = new ArrayList<DirectoryListEntry>();
+
+        initComponents();
     }
 
+    private void initComponents()
+    {
+        list_area = new JTextArea(100, 200);
+        list_area.setEditable(false);
+
+        add(new JScrollPane(list_area));
+        setSize(800, 300);
+        setTitle("Directory Server");
+        setVisible(true);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+    }
+
+    private void buildListTextArea()
+    {
+        System.err.println("Building list text area");
+        String files = "";
+        for(DirectoryListEntry entry : directory)
+            files += entry.getFile() + "\n";
+        list_area.setText(files);
+    }
+
+    public void printDirectory()
+    {
+        System.out.println(directory);
+        System.out.println("Number of entries:" + directory.size());
+        System.out.println("-----------------------------------");
+    }
+    
     public void updateFileListing(DatagramPacket packet)
     {
+        System.err.println("Updating directory listing");
         String splat[] = new String(packet.getData()).split(" ");
         String file = splat[3];
         String address = packet.getAddress().getHostAddress();
         int port = packet.getPort();
 
+        for(DirectoryListEntry entry : directory)
+            if(entry.getFile().equals(file)) // Make sure file with same name does not exist on server
+                return;
+
         DirectoryListEntry entry = new DirectoryListEntry(file, address, 1, port);
         directory.add(entry);
-        System.out.println("Number of entries:" + directory.size());
-        System.out.println(directory);
-        System.out.println("-----------------------------------");
+
+        buildListTextArea();
+        
+        printDirectory();
     }
 
     public void queryListing(DatagramPacket packet)
@@ -77,6 +112,24 @@ class DirectoryServer
 
     public void registerClientExit(DatagramPacket packet)
     {
+        System.out.println("SERVER: Received EXIT packet");
+        InetAddress inet = packet.getAddress();
+        int port = packet.getPort();
+
+        for(Iterator<DirectoryListEntry> itr = directory.iterator(); itr.hasNext(); )
+        {
+            DirectoryListEntry entry = itr.next();
+            if(entry.getAddress().equals(inet.getHostAddress()) && entry.getPort() == port)
+            {
+                System.out.println("Removing directory entry: " + entry);
+                itr.remove();
+            }
+        }
+
+        buildListTextArea();
+        printDirectory();
+
+        System.err.println("Registered Client exit");
     }
 
     public void parsePacket(DatagramPacket packet)
@@ -111,9 +164,11 @@ class DirectoryServer
             {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 ds.receive(packet);
-                sendAck(packet);
+                
                 String str = new String(packet.getData());
                 System.out.println("SERVER - RECEIVED PACKET: " + str);
+
+                sendAck(packet);
 
                 parsePacket(packet);
             }
@@ -127,18 +182,17 @@ class DirectoryServer
     public void sendAck(DatagramPacket rcvPacket) throws UnknownHostException, SocketException, IOException
     {
         int port = rcvPacket.getPort();
-        System.err.println("PORT IS " + port);
         InetAddress inet = rcvPacket.getAddress();
-        System.out.println("Inet Host Addy: " + inet.getHostAddress());
         DatagramPacket ack = Packet.buildServerPacket(Packet.PacketType.ACK, STATUS_OK, "", "", inet, port);
         DatagramSocket socket = new DatagramSocket();
         socket.send(ack);
         socket.close();
+        System.out.println("SERVER: ACK sent to " + inet.getHostAddress() + ":" + port);
     }
 
     public static void main(String ar[])
     {
-        System.out.println("Initializing server...");
+        System.out.println("Server initialized.");
         DirectoryServer server = new DirectoryServer();
         server.packetWaitLoop();
     }
