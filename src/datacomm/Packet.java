@@ -28,6 +28,8 @@ public class Packet
                     inet.getHostAddress() + CRLF
                     + header + CRLF + entity;
             byte buffer[] = message.getBytes();
+
+            System.out.println("BUILDING CLIENT PACKET:\n" + message);
             return new DatagramPacket(buffer, buffer.length, inet, DEFAULT_PORT);
         }
         catch(Exception ex)

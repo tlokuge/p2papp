@@ -32,7 +32,7 @@ class DirectoryListEntry
 
     public String toString()
     {
-        return "File Listing[" + getFile() + " - " + getAddress() + ":" + getPort() + " - " + getRating() + "]\n";
+        return "File Listing[" + getFile() + " - " + getAddress() + ":" + getPort() + " - " + getRating() + "]";
     }
 }
 
@@ -77,7 +77,8 @@ class DirectoryServer extends JFrame
 
     public void printDirectory()
     {
-        System.out.println(directory);
+        for(DirectoryListEntry entry : directory)
+            System.out.println(entry);
         System.out.println("Number of entries:" + directory.size());
         System.out.println("-----------------------------------");
     }
@@ -86,16 +87,24 @@ class DirectoryServer extends JFrame
     {
         System.err.println("Updating directory listing");
         String splat[] = new String(packet.getData()).split(" ");
-        String file = splat[3];
+        String files = splat[3];
         String address = packet.getAddress().getHostAddress();
         int port = packet.getPort();
+        
+        String[] file_split = files.replaceAll("&%", " ").split(";"); // Convert all our $* back to spaces then split by ;
+        System.out.println(file_split);
+        for(int i = 0; i < file_split.length-1; ++i)
+        {
+            boolean skip = false;
+            for(DirectoryListEntry entry : directory)
+                if(entry.getFile().equals(file_split[i])) // Make sure file with same name does not exist on server
+                    skip = true;
 
-        for(DirectoryListEntry entry : directory)
-            if(entry.getFile().equals(file)) // Make sure file with same name does not exist on server
-                return;
-
-        DirectoryListEntry entry = new DirectoryListEntry(file, address, 1, port);
-        directory.add(entry);
+            if(skip)
+                continue;
+            DirectoryListEntry entry = new DirectoryListEntry(file_split[i], address, 1, port);
+            directory.add(entry);
+        }
 
         buildListTextArea();
         
@@ -112,7 +121,6 @@ class DirectoryServer extends JFrame
 
     public void registerClientExit(DatagramPacket packet)
     {
-        System.out.println("SERVER: Received EXIT packet");
         InetAddress inet = packet.getAddress();
         int port = packet.getPort();
 
@@ -120,16 +128,11 @@ class DirectoryServer extends JFrame
         {
             DirectoryListEntry entry = itr.next();
             if(entry.getAddress().equals(inet.getHostAddress()) && entry.getPort() == port)
-            {
-                System.out.println("Removing directory entry: " + entry);
                 itr.remove();
-            }
         }
 
         buildListTextArea();
         printDirectory();
-
-        System.err.println("Registered Client exit");
     }
 
     public void parsePacket(DatagramPacket packet)
@@ -137,6 +140,8 @@ class DirectoryServer extends JFrame
         String data = new String(packet.getData());
         String packetType = data.split(" ")[0];
         Packet.PacketType type = Packet.PacketType.valueOf(packetType);
+
+        System.out.println("SERVER: Parsing " + type + " PACKET");
         switch(type)
         {
             case INFORM_AND_UPDATE: updateFileListing(packet);   break;
@@ -171,6 +176,7 @@ class DirectoryServer extends JFrame
                 sendAck(packet);
 
                 parsePacket(packet);
+                buffer = new byte[BUFSIZE];
             }
         }
         catch (Exception ex)

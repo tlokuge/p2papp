@@ -2,9 +2,8 @@ package datacomm;
 
 import java.net.*;
 import java.io.*;
-import javax.imageio.*;
-import java.awt.*;
 import java.util.Random;
+import javax.swing.JFileChooser;
 
 /**
  *
@@ -50,6 +49,11 @@ public class UI extends javax.swing.JFrame
         Exit = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            public void windowClosing(java.awt.event.WindowEvent evt) {
+                formWindowClosing(evt);
+            }
+        });
 
         jScrollPane1.setViewportView(jList1);
 
@@ -193,17 +197,29 @@ public class UI extends javax.swing.JFrame
     {
     }
 
-    private void waitForAck() throws SocketException, IOException
+    private void waitForAck()
     {
-        System.err.println("CLIENT: Waiting for ACK on port: " + listen_port);
-        DatagramSocket ds = new DatagramSocket(listen_port);
-        byte buffer[] = new byte[128];
+        System.out.println("CLIENT: Waiting for ACK on port: " + listen_port);
+        try
+        {
+            DatagramSocket ds = new DatagramSocket(listen_port);
+            byte buffer[] = new byte[128];
 
-        DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-        ds.receive(packet);
-        ds.close();
-        String str = new String(packet.getData());
-        System.out.println("CLIENT: RECEIVED PACKET: " + str);
+            DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+            ds.setSoTimeout(5000);
+            ds.receive(packet);
+            ds.close();
+            String str = new String(packet.getData());
+            System.out.println("CLIENT: RECEIVED PACKET: " + str);
+        }
+        catch(SocketTimeoutException ex)
+        {
+            System.out.println("CLIENT: Socket Timed out before received ACK");
+        }
+        catch(Exception ex)
+        {
+            System.out.println(ex);
+        }
     }
     
     private void UDPSend(DatagramPacket packet)
@@ -224,30 +240,39 @@ public class UI extends javax.swing.JFrame
     private void sendExitPacket()
     {
         UDPSend(Packet.buildClientPacket(Packet.PacketType.EXIT, "", ""));
+
+        System.exit(0);
     }
     
 private void InformAndUpdateActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_InformAndUpdateActionPerformed
 
-    Image image = null;
+    if(fileChooser == null)
+    {
+        fileChooser = new JFileChooser();
+        fileChooser.setMultiSelectionEnabled(true);
+    }
+
     try
     {
-        String filename = Uploadable.getText();
-        File f = new File(filename);
-        image = ImageIO.read(f);
+        File f = new File(new File(".").getCanonicalPath());
+        fileChooser.setCurrentDirectory(f);
+        if(fileChooser.showOpenDialog(null) == JFileChooser.CANCEL_OPTION)
+            return;
 
+        File[] files = fileChooser.getSelectedFiles();
 
-        Long length = f.length();
+        String header = "";
+        for(int i = 0; i < files.length; ++i)
+            header += files[i].getName() + ";";
 
-        // after we get this working, add multiple file names with the split function on ;
+        header = header.replaceAll(" ", "&%"); // Spaces can cause issues, so we replace them with &%
 
-        String header = filename + " " + length.toString();
         UDPSend(Packet.buildClientPacket(Packet.PacketType.INFORM_AND_UPDATE, header, ""));
     }
-    catch (IOException e)
+    catch(Exception ex)
     {
-        System.out.println("File not found");
-    }
 
+    }
 }//GEN-LAST:event_InformAndUpdateActionPerformed
 
 
@@ -258,8 +283,12 @@ private void QueryForContentActionPerformed(java.awt.event.ActionEvent evt) {//G
 private void ExitActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_ExitActionPerformed
 {//GEN-HEADEREND:event_ExitActionPerformed
     sendExitPacket();
-    System.exit(0);
 }//GEN-LAST:event_ExitActionPerformed
+
+private void formWindowClosing(java.awt.event.WindowEvent evt)//GEN-FIRST:event_formWindowClosing
+{//GEN-HEADEREND:event_formWindowClosing
+    sendExitPacket();
+}//GEN-LAST:event_formWindowClosing
 
     /**
      * @param args the command line arguments
@@ -268,15 +297,16 @@ private void ExitActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:even
     {
         java.awt.EventQueue.invokeLater(new Runnable()
         {
-
             public void run()
             {
                 new UI().setVisible(true);
             }
         });
     }
+    
     private int listen_port = 0;
-    private final String CRLF = System.getProperty("line.separator");
+    private JFileChooser fileChooser;
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton DownloadContent;
     private javax.swing.JButton Exit;
