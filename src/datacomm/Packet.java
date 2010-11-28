@@ -18,18 +18,26 @@ public class Packet
 
     private static final int DEFAULT_PORT = 40110;
 
-    public static DatagramPacket buildClientPacket(PacketType type, String header, String entity)
+    public static DatagramPacket buildClientPacket(PacketType type, String[] header, String entity)
     {
         try
         {
             InetAddress inet = InetAddress.getLocalHost();
-            String message =
-                    type.toString() + " " + inet.getHostName()+ " " +
-                    inet.getHostAddress() + CRLF
-                    + header + CRLF + entity;
+            String requestLine = type.toString() + " " + inet.getHostName() + " " + inet.getHostAddress() + CRLF;
+            String headerLines = "";
+            if(header != null)
+                for(int i = 0; i < header.length; ++i)
+                    headerLines += header[i] + CRLF;
+
+            headerLines += CRLF;
+            String message = requestLine + headerLines + entity;
             byte buffer[] = message.getBytes();
 
-            System.out.println("BUILDING CLIENT PACKET:\n" + message);
+            System.out.println("BUILDING CLIENT PACKET");
+            System.out.println("REQUESTLINE: " + requestLine);
+            System.out.println("HEADERLINES: " + headerLines);
+            System.out.println("ENTITY: " + entity);
+
             return new DatagramPacket(buffer, buffer.length, inet, DEFAULT_PORT);
         }
         catch(Exception ex)

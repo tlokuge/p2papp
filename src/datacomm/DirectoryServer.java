@@ -14,25 +14,28 @@ class DirectoryListEntry
 {
     private String file;
     private String address;
+    private long size;
     private int rating;
     private int port;
 
-    public DirectoryListEntry(String file, String address, int rating, int port)
+    public DirectoryListEntry(String file, String address, long size, int rating, int port)
     {
         this.file = file;
         this.address = address;
+        this.size = size;
         this.rating = rating;
         this.port = port;
     }
 
     public String getFile()    { return file; }
     public String getAddress() { return address; }
+    public long getSize()      { return size; }
     public int getRating()     { return rating; }
     public int getPort()       { return port; }
 
     public String toString()
     {
-        return "File Listing[" + getFile() + " - " + getAddress() + ":" + getPort() + " - " + getRating() + "]";
+        return "File Listing[" + file + "(" + size + ") - " + address + ":" + port + " - " + rating + "]";
     }
 }
 
@@ -71,7 +74,7 @@ class DirectoryServer extends JFrame
         System.err.println("Building list text area");
         String files = "";
         for(DirectoryListEntry entry : directory)
-            files += entry.getFile() + "\n";
+            files += entry + "\n";
         list_area.setText(files);
     }
 
@@ -86,26 +89,28 @@ class DirectoryServer extends JFrame
     public void updateFileListing(DatagramPacket packet)
     {
         System.err.println("Updating directory listing");
-        String splat[] = new String(packet.getData()).split(" ");
-        String files = splat[3];
+        String splat[] = new String(packet.getData()).split(Packet.CRLF);
+        String[] files = new String[splat.length-3];
+        for(int i = 0; i < files.length; ++i)
+            files[i] = splat[i+1];
+
         String address = packet.getAddress().getHostAddress();
         int port = packet.getPort();
-        
-        String[] file_split = files.replaceAll("&%", " ").split(";"); // Convert all our $* back to spaces then split by ;
-        System.out.println(file_split);
-        for(int i = 0; i < file_split.length-1; ++i)
+
+        for(int i = 0; i < files.length; ++i)
         {
+            String[] file_split = files[i].replaceAll("&%", " ").split(";"); // Convert all our &% back to spaces
+            System.out.println(file_split[0] + " - " + file_split[1]);
             boolean skip = false;
             for(DirectoryListEntry entry : directory)
-                if(entry.getFile().equals(file_split[i])) // Make sure file with same name does not exist on server
+                if(entry.getFile().equals(file_split[0])) // Make sure file with same name does not exist on server
                     skip = true;
 
             if(skip)
                 continue;
-            DirectoryListEntry entry = new DirectoryListEntry(file_split[i], address, 1, port);
+            DirectoryListEntry entry = new DirectoryListEntry(file_split[0], address, Long.parseLong(file_split[1]), 1, port);
             directory.add(entry);
         }
-
         buildListTextArea();
         
         printDirectory();

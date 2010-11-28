@@ -4,6 +4,7 @@ import java.net.*;
 import java.io.*;
 import java.util.Random;
 import javax.swing.JFileChooser;
+import javax.swing.filechooser.FileFilter;
 
 /**
  *
@@ -184,19 +185,6 @@ public class UI extends javax.swing.JFrame
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
-
-    private void setTimeout()
-    {
-    }
-
-    private void startTimeout()
-    {
-    }
-
-    private void stopTimeout()
-    {
-    }
-
     private void waitForAck()
     {
         System.out.println("CLIENT: Waiting for ACK on port: " + listen_port);
@@ -239,7 +227,7 @@ public class UI extends javax.swing.JFrame
 
     private void sendExitPacket()
     {
-        UDPSend(Packet.buildClientPacket(Packet.PacketType.EXIT, "", ""));
+        UDPSend(Packet.buildClientPacket(Packet.PacketType.EXIT, null, ""));
 
         System.exit(0);
     }
@@ -250,28 +238,26 @@ private void InformAndUpdateActionPerformed(java.awt.event.ActionEvent evt) {//G
     {
         fileChooser = new JFileChooser();
         fileChooser.setMultiSelectionEnabled(true);
+        fileChooser.setFileFilter(new JPEGExtensionFilter());
     }
 
     try
     {
-        File f = new File(new File(".").getCanonicalPath());
-        fileChooser.setCurrentDirectory(f);
+        fileChooser.setCurrentDirectory(new File("."));
         if(fileChooser.showOpenDialog(null) == JFileChooser.CANCEL_OPTION)
             return;
 
         File[] files = fileChooser.getSelectedFiles();
 
-        String header = "";
-        for(int i = 0; i < files.length; ++i)
-            header += files[i].getName() + ";";
-
-        header = header.replaceAll(" ", "&%"); // Spaces can cause issues, so we replace them with &%
+        String[] header = new String[files.length];
+        for(int i = 0; i < files.length; ++i)// Spaces can cause issues, so we replace them with '&%'
+            header[i] = files[i].getName().replaceAll(" ", "&%") + ";" + files[i].length();
 
         UDPSend(Packet.buildClientPacket(Packet.PacketType.INFORM_AND_UPDATE, header, ""));
     }
     catch(Exception ex)
     {
-
+        System.err.println(ex);
     }
 }//GEN-LAST:event_InformAndUpdateActionPerformed
 
@@ -290,9 +276,24 @@ private void formWindowClosing(java.awt.event.WindowEvent evt)//GEN-FIRST:event_
     sendExitPacket();
 }//GEN-LAST:event_formWindowClosing
 
-    /**
-     * @param args the command line arguments
-     */
+
+    class JPEGExtensionFilter extends FileFilter
+    {
+        public boolean accept(File file)
+        {
+            if(file.getName().toLowerCase().endsWith(".jpeg")
+                    || file.getName().toLowerCase().endsWith(".jpg"))
+                return true;
+
+            return false;
+        }
+
+        public String getDescription()
+        {
+            return "Extension filter for jpeg and jpg files only";
+        }
+    }
+
     public static void main(String args[])
     {
         java.awt.EventQueue.invokeLater(new Runnable()
