@@ -48,11 +48,24 @@ public class Packet
         return null;
     }
 
-    public static DatagramPacket buildServerPacket(PacketType type, String status, String header, String entity, InetAddress inet, int port)
+    public static DatagramPacket buildServerPacket(PacketType type, String status, String[] header, String entity, InetAddress inet, int port)
     {
         try
         {
-            String message = status + " " + type.toString() + CRLF + header + CRLF + CRLF + entity;
+            String requestLine = status + " " + type.toString() + CRLF;
+            String headerLines = "";
+            if(header != null)
+                for(int i = 0; i < header.length; ++i)
+                    headerLines += header[i] + CRLF;
+            
+            headerLines += CRLF;
+
+            String message = requestLine + headerLines + entity;
+
+            System.out.println("BUILDING SERVER PACKET");
+            System.out.println("REQUESTLINE: " + requestLine);
+            System.out.println("HEADERLINES: " + headerLines);
+            System.out.println("ENTITY: " + entity);
             byte buffer[] = message.getBytes();
             return new DatagramPacket(buffer, buffer.length, inet, port);
         }

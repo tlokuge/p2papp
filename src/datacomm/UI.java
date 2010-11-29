@@ -1,7 +1,12 @@
 package datacomm;
 
+import java.awt.BorderLayout;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.net.*;
 import java.io.*;
+import javax.swing.*;
+import java.util.ArrayList;
 import java.util.Random;
 import javax.swing.JFileChooser;
 import javax.swing.filechooser.FileFilter;
@@ -17,10 +22,55 @@ public class UI extends javax.swing.JFrame
     public UI()
     {
         Random gen = new Random();
-        listen_port = 16000 + gen.nextInt(1000);
+        //listen_port = 16000 + gen.nextInt(1000);
+        listen_port = 18888;
+        directory = new ArrayList();
         initComponents();
+
+        initRateFrame();
     }
 
+    private void initRateFrame()
+    {
+        rateFrame = new JFrame("FrameDemo");
+        ratingField = new JTextField(3);
+        rateButton = new JButton("Rate");
+
+        rateFrame.setSize(300, 100);
+        rateFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        rateFrame.setLayout(new BorderLayout());
+        rateFrame.add(new JLabel("Enter a rating (1-100):"), BorderLayout.NORTH);
+        rateFrame.add(ratingField, BorderLayout.CENTER);
+        rateFrame.add(rateButton, BorderLayout.SOUTH);
+        rateFrame.setVisible(false);
+
+        class rateButtonListener implements ActionListener
+        {
+            public void actionPerformed(ActionEvent event)
+            {
+
+                String file_name = directoryList.getSelectedValue().toString();
+                int rating = Integer.parseInt(ratingField.getText());
+                if(rating < 0 || rating > 100)
+                    JOptionPane.showMessageDialog(null, "The rating must be between 0 and 100!");
+                else
+                {
+                    String[] header = {file_name + ";" + rating};
+                    boolean ack = UDPSend(Packet.buildClientPacket(Packet.PacketType.RATE_CONTENT, header, ""));
+                    if(ack)
+                    {
+                        directory.get(directoryList.getSelectedIndex()).rate(rating);
+                        updateDirectory();
+                    }
+                }
+                directoryList.setSelectedIndex(-1);
+                ratingField.setText("");
+                rateFrame.setVisible(false);
+            }
+        }
+
+        rateButton.addActionListener(new rateButtonListener());
+    }
     /** This method is called from within the constructor to
      * initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is
@@ -30,13 +80,15 @@ public class UI extends javax.swing.JFrame
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
+        jFrame1 = new javax.swing.JFrame();
+        jFrame2 = new javax.swing.JFrame();
+        jDialog1 = new javax.swing.JDialog();
         jScrollPane1 = new javax.swing.JScrollPane();
-        jList1 = new javax.swing.JList();
+        directoryList = new javax.swing.JList();
         QueryForContent = new javax.swing.JButton();
         DownloadContent = new javax.swing.JButton();
-        Uploadable = new javax.swing.JTextField();
         InformAndUpdate = new javax.swing.JButton();
-        jTextField2 = new javax.swing.JTextField();
+        searchField = new javax.swing.JTextField();
         RateContent = new javax.swing.JButton();
         jLabel1 = new javax.swing.JLabel();
         jLabel2 = new javax.swing.JLabel();
@@ -44,10 +96,43 @@ public class UI extends javax.swing.JFrame
         jLabel4 = new javax.swing.JLabel();
         jLabel5 = new javax.swing.JLabel();
         jScrollPane2 = new javax.swing.JScrollPane();
-        jList2 = new javax.swing.JList();
+        ratingList = new javax.swing.JList();
         jLabel6 = new javax.swing.JLabel();
         jLabel7 = new javax.swing.JLabel();
         Exit = new javax.swing.JButton();
+
+        javax.swing.GroupLayout jFrame1Layout = new javax.swing.GroupLayout(jFrame1.getContentPane());
+        jFrame1.getContentPane().setLayout(jFrame1Layout);
+        jFrame1Layout.setHorizontalGroup(
+            jFrame1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 400, Short.MAX_VALUE)
+        );
+        jFrame1Layout.setVerticalGroup(
+            jFrame1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 300, Short.MAX_VALUE)
+        );
+
+        javax.swing.GroupLayout jFrame2Layout = new javax.swing.GroupLayout(jFrame2.getContentPane());
+        jFrame2.getContentPane().setLayout(jFrame2Layout);
+        jFrame2Layout.setHorizontalGroup(
+            jFrame2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 400, Short.MAX_VALUE)
+        );
+        jFrame2Layout.setVerticalGroup(
+            jFrame2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 300, Short.MAX_VALUE)
+        );
+
+        javax.swing.GroupLayout jDialog1Layout = new javax.swing.GroupLayout(jDialog1.getContentPane());
+        jDialog1.getContentPane().setLayout(jDialog1Layout);
+        jDialog1Layout.setHorizontalGroup(
+            jDialog1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 400, Short.MAX_VALUE)
+        );
+        jDialog1Layout.setVerticalGroup(
+            jDialog1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 300, Short.MAX_VALUE)
+        );
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         addWindowListener(new java.awt.event.WindowAdapter() {
@@ -56,7 +141,7 @@ public class UI extends javax.swing.JFrame
             }
         });
 
-        jScrollPane1.setViewportView(jList1);
+        jScrollPane1.setViewportView(directoryList);
 
         QueryForContent.setText("Search");
         QueryForContent.addActionListener(new java.awt.event.ActionListener() {
@@ -67,7 +152,7 @@ public class UI extends javax.swing.JFrame
 
         DownloadContent.setText("Download");
 
-        InformAndUpdate.setText("Upload");
+        InformAndUpdate.setText("Upload Files");
         InformAndUpdate.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 InformAndUpdateActionPerformed(evt);
@@ -75,6 +160,11 @@ public class UI extends javax.swing.JFrame
         });
 
         RateContent.setText("Rate");
+        RateContent.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                RateContentActionPerformed(evt);
+            }
+        });
 
         jLabel1.setText("File");
 
@@ -86,7 +176,7 @@ public class UI extends javax.swing.JFrame
 
         jLabel5.setText("                      Jenny Ta");
 
-        jScrollPane2.setViewportView(jList2);
+        jScrollPane2.setViewportView(ratingList);
 
         jLabel6.setText("Rating");
 
@@ -107,18 +197,18 @@ public class UI extends javax.swing.JFrame
                 .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                     .addGroup(javax.swing.GroupLayout.Alignment.LEADING, layout.createSequentialGroup()
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                            .addComponent(jTextField2, javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(jLabel2, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, 278, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addComponent(Uploadable, javax.swing.GroupLayout.Alignment.LEADING))
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                            .addGroup(layout.createSequentialGroup()
+                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+                                    .addComponent(searchField, javax.swing.GroupLayout.Alignment.LEADING)
+                                    .addComponent(jLabel2, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, 278, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(QueryForContent))
+                            .addComponent(InformAndUpdate, javax.swing.GroupLayout.DEFAULT_SIZE, 352, Short.MAX_VALUE))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                            .addComponent(InformAndUpdate, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(QueryForContent, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                        .addGap(18, 18, 18)
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(jLabel4, javax.swing.GroupLayout.DEFAULT_SIZE, 198, Short.MAX_VALUE)
-                            .addComponent(jLabel3, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(jLabel4, javax.swing.GroupLayout.DEFAULT_SIZE, 209, Short.MAX_VALUE)
+                            .addComponent(jLabel3, javax.swing.GroupLayout.DEFAULT_SIZE, 209, Short.MAX_VALUE)
                             .addComponent(jLabel5))
                         .addGap(98, 98, 98))
                     .addComponent(DownloadContent, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, 211, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -146,13 +236,11 @@ public class UI extends javax.swing.JFrame
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(layout.createSequentialGroup()
                         .addComponent(jLabel2, javax.swing.GroupLayout.PREFERRED_SIZE, 28, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                            .addComponent(Uploadable)
-                            .addComponent(InformAndUpdate))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 11, Short.MAX_VALUE)
+                        .addComponent(InformAndUpdate)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                            .addComponent(jTextField2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(searchField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                             .addComponent(QueryForContent))
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addGroup(layout.createSequentialGroup()
@@ -185,12 +273,27 @@ public class UI extends javax.swing.JFrame
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
-    private void waitForAck()
+    private void updateDirectory()
+    {
+        String[] dirText = new String[directory.size()];
+        String[] ratText = new String[directory.size()];
+        for(int i = 0; i < directory.size(); ++i)
+        {
+            dirText[i] = directory.get(i).getFile();
+            ratText[i] = directory.get(i).getRating() + "";
+        }
+
+        directoryList.setListData(dirText);
+        ratingList.setListData(ratText);
+    }
+
+    private boolean waitForAck()
     {
         System.out.println("CLIENT: Waiting for ACK on port: " + listen_port);
+        DatagramSocket ds = null;
         try
         {
-            DatagramSocket ds = new DatagramSocket(listen_port);
+            ds = new DatagramSocket(listen_port);
             byte buffer[] = new byte[128];
 
             DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
@@ -199,29 +302,44 @@ public class UI extends javax.swing.JFrame
             ds.close();
             String str = new String(packet.getData());
             System.out.println("CLIENT: RECEIVED PACKET: " + str);
+
+            return true;
         }
         catch(SocketTimeoutException ex)
         {
+            if(ds != null)
+                ds.close();
             System.out.println("CLIENT: Socket Timed out before received ACK");
+            return false;
         }
         catch(Exception ex)
         {
+            if(ds != null)
+                ds.close();
             System.out.println(ex);
+
+            return false;
         }
     }
     
-    private void UDPSend(DatagramPacket packet)
+    private boolean UDPSend(DatagramPacket packet)
     {
+        DatagramSocket ds = null;
         try
         {
-            DatagramSocket ds = new DatagramSocket(listen_port);
+            ds = new DatagramSocket(listen_port);
             ds.send(packet);
             ds.close();
-            waitForAck();
+            return waitForAck();
         }
         catch (Exception ex)
         {
+            if(ds != null)
+                ds.close();
+            
             System.err.println(ex);
+
+            return false;
         }
     }
 
@@ -238,7 +356,7 @@ private void InformAndUpdateActionPerformed(java.awt.event.ActionEvent evt) {//G
     {
         fileChooser = new JFileChooser();
         fileChooser.setMultiSelectionEnabled(true);
-        fileChooser.setFileFilter(new JPEGExtensionFilter());
+        //fileChooser.setFileFilter(new JPEGExtensionFilter());
     }
 
     try
@@ -263,7 +381,52 @@ private void InformAndUpdateActionPerformed(java.awt.event.ActionEvent evt) {//G
 
 
 private void QueryForContentActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_QueryForContentActionPerformed
-// TODO add your handling code here:
+
+    String file_name[] = {searchField.getText()};
+    UDPSend(Packet.buildClientPacket(Packet.PacketType.QUERY_FOR_CONTENT, file_name, ""));
+
+    DatagramSocket ds = null;
+    try
+    {
+        System.out.println("TRYYYYYYYYYYYYY");
+        ds = new DatagramSocket(listen_port);
+        byte buffer[] = new byte[128];
+
+        System.out.println("CLIENT: Waiting for response from SERVER");
+        DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+        ds.setSoTimeout(5000);
+        ds.receive(packet);
+        ds.close();
+
+        System.out.println("CLIENT: RECEIVED PACKET: " + new String(packet.getData()));
+        directory.clear();
+        String header[] = new String(packet.getData()).split(Packet.CRLF);
+        for(int i = 1; i < header.length-2; ++i)
+        {
+            String splat[] = header[i].split(";");
+            String file = splat[0];
+            long size = Long.parseLong(splat[1]);
+            String address = splat[2];
+            int port = Integer.parseInt(splat[3]);
+            double rating = Double.parseDouble(splat[4]);
+            //String file, String address, long size, int rating, int port
+            directory.add(new DirectoryListEntry(file, address, size, rating, port));
+        }
+
+        updateDirectory();
+    }
+    catch(SocketTimeoutException ex)
+    {
+        System.out.println("CLIENT: Query Packet Response LOST! D:");
+        if(ds != null)
+            ds.close();
+    }
+    catch(Exception ex)
+    {
+        if(ds != null)
+            ds.close();
+    }
+
 }//GEN-LAST:event_QueryForContentActionPerformed
 
 private void ExitActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_ExitActionPerformed
@@ -275,6 +438,14 @@ private void formWindowClosing(java.awt.event.WindowEvent evt)//GEN-FIRST:event_
 {//GEN-HEADEREND:event_formWindowClosing
     sendExitPacket();
 }//GEN-LAST:event_formWindowClosing
+
+private void RateContentActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_RateContentActionPerformed
+{//GEN-HEADEREND:event_RateContentActionPerformed
+
+    rateFrame.setVisible(true);
+
+
+}//GEN-LAST:event_RateContentActionPerformed
 
 
     class JPEGExtensionFilter extends FileFilter
@@ -290,7 +461,7 @@ private void formWindowClosing(java.awt.event.WindowEvent evt)//GEN-FIRST:event_
 
         public String getDescription()
         {
-            return "Extension filter for jpeg and jpg files only";
+            return ".jpeg and .jpg files only";
         }
     }
 
@@ -307,6 +478,11 @@ private void formWindowClosing(java.awt.event.WindowEvent evt)//GEN-FIRST:event_
     
     private int listen_port = 0;
     private JFileChooser fileChooser;
+    private ArrayList<DirectoryListEntry> directory;
+
+    private JTextField ratingField;
+    private JButton rateButton;
+    private JFrame rateFrame;
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton DownloadContent;
@@ -314,7 +490,10 @@ private void formWindowClosing(java.awt.event.WindowEvent evt)//GEN-FIRST:event_
     private javax.swing.JButton InformAndUpdate;
     private javax.swing.JButton QueryForContent;
     private javax.swing.JButton RateContent;
-    private javax.swing.JTextField Uploadable;
+    private javax.swing.JList directoryList;
+    private javax.swing.JDialog jDialog1;
+    private javax.swing.JFrame jFrame1;
+    private javax.swing.JFrame jFrame2;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel3;
@@ -322,10 +501,9 @@ private void formWindowClosing(java.awt.event.WindowEvent evt)//GEN-FIRST:event_
     private javax.swing.JLabel jLabel5;
     private javax.swing.JLabel jLabel6;
     private javax.swing.JLabel jLabel7;
-    private javax.swing.JList jList1;
-    private javax.swing.JList jList2;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;
-    private javax.swing.JTextField jTextField2;
+    private javax.swing.JList ratingList;
+    private javax.swing.JTextField searchField;
     // End of variables declaration//GEN-END:variables
 }

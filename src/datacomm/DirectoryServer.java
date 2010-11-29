@@ -10,35 +10,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import javax.swing.*;
 
-class DirectoryListEntry
-{
-    private String file;
-    private String address;
-    private long size;
-    private int rating;
-    private int port;
-
-    public DirectoryListEntry(String file, String address, long size, int rating, int port)
-    {
-        this.file = file;
-        this.address = address;
-        this.size = size;
-        this.rating = rating;
-        this.port = port;
-    }
-
-    public String getFile()    { return file; }
-    public String getAddress() { return address; }
-    public long getSize()      { return size; }
-    public int getRating()     { return rating; }
-    public int getPort()       { return port; }
-
-    public String toString()
-    {
-        return "File Listing[" + file + "(" + size + ") - " + address + ":" + port + " - " + rating + "]";
-    }
-}
-
 class DirectoryServer extends JFrame
 {
     public final static int BUFSIZE = 128;
@@ -118,10 +89,47 @@ class DirectoryServer extends JFrame
 
     public void queryListing(DatagramPacket packet)
     {
+        System.out.println("QUERY");
+        InetAddress inet = packet.getAddress();
+        int port = packet.getPort();
+        String searchQuery = new String(packet.getData()).split(Packet.CRLF)[1].toLowerCase();
+
+        ArrayList<DirectoryListEntry> results = new ArrayList<DirectoryListEntry>();
+        for(DirectoryListEntry entry : directory)
+        {
+            if(entry.getFile().toLowerCase().contains(searchQuery))
+            {
+                results.add(entry);
+            }
+        }
+
+        String[] header = new String[results.size()];
+        for(int i = 0; i < header.length; ++i)
+            header[i] = results.get(i).convertToPacketData();
+        
+        DatagramPacket response = Packet.buildServerPacket(Packet.PacketType.QUERY_FOR_CONTENT,
+                STATUS_OK, header, " ", inet, port);
+
+        sendPacket(response);
     }
 
     public void rateContent(DatagramPacket packet)
     {
+        String data = new String(packet.getData());
+        String header = data.split(Packet.CRLF)[1];
+        String filename = header.split(";")[0];
+        String rate = header.split(";")[1];
+
+        DirectoryListEntry target = null;
+        for(DirectoryListEntry entry : directory)
+            if(entry.getFile().toLowerCase().equals(filename.toLowerCase()))
+            {
+                target = entry;
+                break;
+            }
+
+        target.rate(Integer.parseInt(rate));
+        buildListTextArea();
     }
 
     public void registerClientExit(DatagramPacket packet)
@@ -165,9 +173,10 @@ class DirectoryServer extends JFrame
 
     public void packetWaitLoop()
     {
+        DatagramSocket ds = null;
         try
         {
-            DatagramSocket ds = new DatagramSocket(40110);
+            ds = new DatagramSocket(40110);
             byte buffer[] = new byte[BUFSIZE];
 
             while(true)
@@ -186,6 +195,8 @@ class DirectoryServer extends JFrame
         }
         catch (Exception ex)
         {
+            if(ds != null)
+                ds.close();
             System.err.println(ex);
         }
     }
@@ -194,11 +205,29 @@ class DirectoryServer extends JFrame
     {
         int port = rcvPacket.getPort();
         InetAddress inet = rcvPacket.getAddress();
-        DatagramPacket ack = Packet.buildServerPacket(Packet.PacketType.ACK, STATUS_OK, "", "", inet, port);
+        DatagramPacket ack = Packet.buildServerPacket(Packet.PacketType.ACK, STATUS_OK, null, "", inet, port);
         DatagramSocket socket = new DatagramSocket();
         socket.send(ack);
         socket.close();
         System.out.println("SERVER: ACK sent to " + inet.getHostAddress() + ":" + port);
+    }
+
+    public void sendPacket(DatagramPacket packet)
+    {
+        DatagramSocket ds = null;
+        try
+        {
+            ds = new DatagramSocket();
+            ds.send(packet);
+            ds.close();
+        }
+        catch(Exception ex)
+        {
+            if(ds != null)
+                ds.close();
+
+            System.out.println("DIE");
+        }
     }
 
     public static void main(String ar[])
