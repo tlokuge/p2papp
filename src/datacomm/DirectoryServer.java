@@ -7,7 +7,10 @@ package datacomm;
 import java.net.*;
 import java.io.*;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Iterator;
+import java.util.Random;
 import javax.swing.*;
 
 class DirectoryServer extends JFrame
@@ -19,6 +22,345 @@ class DirectoryServer extends JFrame
     public ArrayList<DirectoryListEntry> directory;
 
     private JTextArea list_area;
+
+    private class ServerThread implements Runnable
+    {
+        private Thread thread;
+        private DatagramPacket packet;
+        private int listen_port;
+        private ArrayList<DatagramPacket> packets;
+
+        ServerThread(DatagramPacket packet)
+        {
+            this.packet = packet;
+            listen_port = -1;
+            packets = new ArrayList<DatagramPacket>();
+
+            thread = new Thread(this);
+            thread.start();
+        }
+
+        public void run()
+        {
+            handlePacket();
+        }
+
+        public void handlePacket()
+        {
+            String str = new String(packet.getData());
+            String reqLine = str.split(Packet.CRLF)[0];
+            if(reqLine.split(" ")[0].equalsIgnoreCase(Packet.PacketType.WELCOME.toString()))
+                sendWelcomeReplyPacket(reqLine);
+
+            System.out.println("Port: " + listen_port);
+            waitForPackets();
+
+            //parsePacket(packet);
+        }
+
+        class PacketSorter implements Comparator
+        {
+            // a negative integer, zero, or a positive integer as the first argument is less than, equal to, or greater than the second.
+            public int compare(Object o1, Object o2)
+            {
+                if(!(o1 instanceof DatagramPacket) || !(o2 instanceof DatagramPacket))
+                    return -1;
+
+                int seq1 = Integer.parseInt(new String(((DatagramPacket)o1).getData()).split(" ")[0]);
+                int seq2 = Integer.parseInt(new String(((DatagramPacket)o2).getData()).split(" ")[0]);
+
+                if(seq1 > seq2)
+                    return 1;
+                else if(seq1 == seq2)
+                    return 0;
+
+                return -1;
+            }
+
+        }
+        public boolean isLarger(DatagramPacket one, DatagramPacket two)
+        {
+            int seq1 = Integer.parseInt(new String(one.getData()).split(" ")[0]);
+            int seq2 = Integer.parseInt(new String(two.getData()).split(" ")[0]);
+
+            if(seq1 > seq2)
+                return true;
+
+            return false;
+        }
+
+        public String assemblePackets()
+        {
+            String message = "";
+            
+            System.out.println("Before sort:");
+            for(DatagramPacket p : packets)
+                System.out.println(Integer.parseInt(new String(p.getData()).split(" ")[0]));
+
+            Collections.sort(packets, new PacketSorter());
+
+            System.out.println("After sort:");
+            for(DatagramPacket p : packets)
+                System.out.println(Integer.parseInt(new String(p.getData()).split(" ")[0]));
+
+            return message;
+        }
+
+        public void waitForPackets()
+        {
+            DatagramSocket ds = null;
+            try
+            {
+                ds = new DatagramSocket(listen_port);
+                System.out.println("waiting for packets on port " + listen_port);
+                byte buffer[] = new byte[BUFSIZE];
+
+                while(true)
+                {
+                    DatagramPacket p = new DatagramPacket(buffer, buffer.length);
+                    System.out.println("Listening for packet...");
+                    ds.receive(p);
+                    System.out.println("Packet received");
+                    String type = new String(p.getData()).split(" ")[0];
+                    System.out.println("Packet type: " + type);
+                    if(type.equalsIgnoreCase(Packet.PacketType.FIN.toString()))
+                    {
+                        assemblePackets();
+                        ds.close();
+                        return;
+                    }
+                    packets.add(p);
+                    buffer = new byte[BUFSIZE];
+                }
+            }
+            catch (Exception ex)
+            {
+                if(ds != null)
+                    ds.close();
+                System.err.println("Wait for Packet: " + ex);
+                System.out.println("Listen Port: " + listen_port);
+            }
+        }
+
+        public void sendWelcomeReplyPacket(String requestLine)
+        {
+            if(listen_port > 0)
+                return;
+
+            System.out.println("Inside welcome reply packet ");
+            DatagramSocket socket = null;
+            try
+            {
+                InetAddress inet = packet.getAddress();
+                int port = packet.getPort();
+                DatagramPacket reply = new DatagramPacket(new byte[128], 128, inet, port);
+                listen_port = 16000 + new Random().nextInt(1000);
+                System.out.println("Setting port to " + listen_port);
+                socket = new DatagramSocket(listen_port);
+                socket.send(reply);
+                socket.close();
+            }
+            catch(Exception ex)
+            {
+                if(socket != null)
+                    socket.close();
+                System.out.println("Send Welcome Reply: " + ex);
+            }
+
+            System.out.println("Welcome Reply Port: " + listen_port);
+        }
+
+        public void sendAck(DatagramPacket rcvPacket)
+        {
+            DatagramSocket socket = null;
+            try
+            {
+                String data = new String(rcvPacket.getData());
+                String seq = data.split(" ")[0];
+                int port = rcvPacket.getPort();
+                InetAddress inet = rcvPacket.getAddress();
+                String header[] = {seq};
+                DatagramPacket ack = Packet.buildServerPacket(Packet.PacketType.ACK, STATUS_OK, header, "", inet, port);
+                socket = new DatagramSocket(listen_port);
+                socket.send(ack);
+                socket.close();
+                System.out.println("SERVER: ACK sent to " + inet.getHostAddress() + ":" + port);
+            }
+            catch(SocketException exception)
+            {
+                if(socket != null)
+                    socket.close();
+            }
+            catch(Exception ex)
+            {
+                if(socket != null)
+                    socket.close();
+            }
+        }
+
+        public void sendPacket(DatagramPacket packet)
+        {
+            DatagramSocket ds = null;
+            try
+            {
+                ds = new DatagramSocket(listen_port);
+                ds.send(packet);
+                ds.close();
+            }
+            catch(Exception ex)
+            {
+                if(ds != null)
+                    ds.close();
+            }
+        }
+
+        public void updateFileListing(DatagramPacket packet)
+        {
+            System.err.println("Updating directory listing");
+            String splat[] = new String(packet.getData()).split(Packet.CRLF);
+            String[] files = new String[splat.length-3];
+            for(int i = 0; i < files.length; ++i)
+                files[i] = splat[i+1];
+
+            String address = packet.getAddress().getHostAddress();
+            int port = packet.getPort();
+
+            for(int i = 0; i < files.length; ++i)
+            {
+                String[] file_split = files[i].replaceAll("&%", " ").split(";"); // Convert all our &% back to spaces
+                System.out.println(file_split[0] + " - " + file_split[1]);
+                boolean skip = false;
+                for(DirectoryListEntry entry : directory)
+                    if(entry.getFile().equals(file_split[0])) // Make sure file with same name does not exist on server
+                        skip = true;
+
+                if(skip)
+                    continue;
+                DirectoryListEntry entry = new DirectoryListEntry(file_split[0], address, Long.parseLong(file_split[1]), 1, port);
+                directory.add(entry);
+            }
+            buildListTextArea();
+
+            printDirectory();
+        }
+
+        public void queryListing(DatagramPacket packet)
+        {
+            System.out.println("QUERY");
+            InetAddress inet = packet.getAddress();
+            int port = packet.getPort();
+            String searchQuery = new String(packet.getData()).split(Packet.CRLF)[1].toLowerCase();
+
+            ArrayList<DirectoryListEntry> results = new ArrayList<DirectoryListEntry>();
+            synchronized(directory)
+            {
+                for(DirectoryListEntry entry : directory)
+                {
+                    if(entry.getFile().toLowerCase().contains(searchQuery))
+                    {
+                        results.add(entry);
+                    }
+                }
+            }
+
+            String[] header = new String[results.size()];
+            for(int i = 0; i < header.length; ++i)
+                header[i] = results.get(i).convertToPacketData();
+
+            DatagramPacket response = Packet.buildServerPacket(Packet.PacketType.QUERY_FOR_CONTENT,
+                    STATUS_OK, header, " ", inet, port);
+
+            sendPacket(response);
+        }
+
+        public void rateContent(DatagramPacket packet)
+        {
+            String data = new String(packet.getData());
+            String header = data.split(Packet.CRLF)[1];
+            String filename = header.split(";")[0];
+            String rate = header.split(";")[1];
+
+            DirectoryListEntry target = null;
+            synchronized(directory)
+            {
+                for(DirectoryListEntry entry : directory)
+                    if(entry.getFile().toLowerCase().equals(filename.toLowerCase()))
+                    {
+                        target = entry;
+                        break;
+                    }
+            }
+
+            target.rate(Integer.parseInt(rate));
+            buildListTextArea();
+        }
+
+        public void registerClientExit(DatagramPacket packet)
+        {
+            InetAddress inet = packet.getAddress();
+            int port = packet.getPort();
+
+            synchronized(directory)
+            {
+                for(Iterator<DirectoryListEntry> itr = directory.iterator(); itr.hasNext(); )
+                {
+                    DirectoryListEntry entry = itr.next();
+                    if(entry.getAddress().equals(inet.getHostAddress()) && entry.getPort() == port)
+                        itr.remove();
+                }
+            }
+
+            buildListTextArea();
+            printDirectory();
+        }
+
+        public void parsePacket(DatagramPacket packet)
+        {
+            String data = new String(packet.getData());
+            String packetType = data.split(" ")[0];
+            Packet.PacketType type = Packet.PacketType.valueOf(packetType);
+
+            System.out.println("SERVER: Parsing " + type + " PACKET");
+            switch(type)
+            {
+                case INFORM_AND_UPDATE: updateFileListing(packet);   break;
+                case QUERY_FOR_CONTENT: queryListing(packet);        break;
+                case RATE_CONTENT:      rateContent(packet);         break;
+                case EXIT:              registerClientExit(packet);  break;
+
+                case ACK:
+                    break;
+
+                case NACK:
+                    break;
+
+            }
+        }
+
+        private synchronized void buildListTextArea()
+        {
+            System.err.println("Building list text area");
+            String files = "";
+            synchronized(directory)
+            {
+                for(DirectoryListEntry entry : directory)
+                    files += entry + "\n";
+            }
+            list_area.setText(files);
+        }
+
+        public synchronized void printDirectory()
+        {
+            synchronized(directory)
+            {
+                for(DirectoryListEntry entry : directory)
+                    System.out.println(entry);
+            }
+            System.out.println("Number of entries:" + directory.size());
+            System.out.println("-----------------------------------");
+        }
+
+    }
 
     public DirectoryServer()
     {
@@ -40,137 +382,6 @@ class DirectoryServer extends JFrame
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     }
 
-    private void buildListTextArea()
-    {
-        System.err.println("Building list text area");
-        String files = "";
-        for(DirectoryListEntry entry : directory)
-            files += entry + "\n";
-        list_area.setText(files);
-    }
-
-    public void printDirectory()
-    {
-        for(DirectoryListEntry entry : directory)
-            System.out.println(entry);
-        System.out.println("Number of entries:" + directory.size());
-        System.out.println("-----------------------------------");
-    }
-    
-    public void updateFileListing(DatagramPacket packet)
-    {
-        System.err.println("Updating directory listing");
-        String splat[] = new String(packet.getData()).split(Packet.CRLF);
-        String[] files = new String[splat.length-3];
-        for(int i = 0; i < files.length; ++i)
-            files[i] = splat[i+1];
-
-        String address = packet.getAddress().getHostAddress();
-        int port = packet.getPort();
-
-        for(int i = 0; i < files.length; ++i)
-        {
-            String[] file_split = files[i].replaceAll("&%", " ").split(";"); // Convert all our &% back to spaces
-            System.out.println(file_split[0] + " - " + file_split[1]);
-            boolean skip = false;
-            for(DirectoryListEntry entry : directory)
-                if(entry.getFile().equals(file_split[0])) // Make sure file with same name does not exist on server
-                    skip = true;
-
-            if(skip)
-                continue;
-            DirectoryListEntry entry = new DirectoryListEntry(file_split[0], address, Long.parseLong(file_split[1]), 1, port);
-            directory.add(entry);
-        }
-        buildListTextArea();
-        
-        printDirectory();
-    }
-
-    public void queryListing(DatagramPacket packet)
-    {
-        System.out.println("QUERY");
-        InetAddress inet = packet.getAddress();
-        int port = packet.getPort();
-        String searchQuery = new String(packet.getData()).split(Packet.CRLF)[1].toLowerCase();
-
-        ArrayList<DirectoryListEntry> results = new ArrayList<DirectoryListEntry>();
-        for(DirectoryListEntry entry : directory)
-        {
-            if(entry.getFile().toLowerCase().contains(searchQuery))
-            {
-                results.add(entry);
-            }
-        }
-
-        String[] header = new String[results.size()];
-        for(int i = 0; i < header.length; ++i)
-            header[i] = results.get(i).convertToPacketData();
-        
-        DatagramPacket response = Packet.buildServerPacket(Packet.PacketType.QUERY_FOR_CONTENT,
-                STATUS_OK, header, " ", inet, port);
-
-        sendPacket(response);
-    }
-
-    public void rateContent(DatagramPacket packet)
-    {
-        String data = new String(packet.getData());
-        String header = data.split(Packet.CRLF)[1];
-        String filename = header.split(";")[0];
-        String rate = header.split(";")[1];
-
-        DirectoryListEntry target = null;
-        for(DirectoryListEntry entry : directory)
-            if(entry.getFile().toLowerCase().equals(filename.toLowerCase()))
-            {
-                target = entry;
-                break;
-            }
-
-        target.rate(Integer.parseInt(rate));
-        buildListTextArea();
-    }
-
-    public void registerClientExit(DatagramPacket packet)
-    {
-        InetAddress inet = packet.getAddress();
-        int port = packet.getPort();
-
-        for(Iterator<DirectoryListEntry> itr = directory.iterator(); itr.hasNext(); )
-        {
-            DirectoryListEntry entry = itr.next();
-            if(entry.getAddress().equals(inet.getHostAddress()) && entry.getPort() == port)
-                itr.remove();
-        }
-
-        buildListTextArea();
-        printDirectory();
-    }
-
-    public void parsePacket(DatagramPacket packet)
-    {
-        String data = new String(packet.getData());
-        String packetType = data.split(" ")[0];
-        Packet.PacketType type = Packet.PacketType.valueOf(packetType);
-
-        System.out.println("SERVER: Parsing " + type + " PACKET");
-        switch(type)
-        {
-            case INFORM_AND_UPDATE: updateFileListing(packet);   break;
-            case QUERY_FOR_CONTENT: queryListing(packet);        break;
-            case RATE_CONTENT:      rateContent(packet);         break;
-            case EXIT:              registerClientExit(packet);  break;
-
-            case ACK:
-                break;
-
-            case NACK:
-                break;
-
-        }
-    }
-
     public void packetWaitLoop()
     {
         DatagramSocket ds = null;
@@ -183,13 +394,9 @@ class DirectoryServer extends JFrame
             {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 ds.receive(packet);
+
+                ServerThread thread = new ServerThread(packet);
                 
-                String str = new String(packet.getData());
-                System.out.println("SERVER - RECEIVED PACKET: " + str);
-
-                sendAck(packet);
-
-                parsePacket(packet);
                 buffer = new byte[BUFSIZE];
             }
         }
@@ -198,35 +405,6 @@ class DirectoryServer extends JFrame
             if(ds != null)
                 ds.close();
             System.err.println(ex);
-        }
-    }
-    
-    public void sendAck(DatagramPacket rcvPacket) throws UnknownHostException, SocketException, IOException
-    {
-        int port = rcvPacket.getPort();
-        InetAddress inet = rcvPacket.getAddress();
-        DatagramPacket ack = Packet.buildServerPacket(Packet.PacketType.ACK, STATUS_OK, null, "", inet, port);
-        DatagramSocket socket = new DatagramSocket();
-        socket.send(ack);
-        socket.close();
-        System.out.println("SERVER: ACK sent to " + inet.getHostAddress() + ":" + port);
-    }
-
-    public void sendPacket(DatagramPacket packet)
-    {
-        DatagramSocket ds = null;
-        try
-        {
-            ds = new DatagramSocket();
-            ds.send(packet);
-            ds.close();
-        }
-        catch(Exception ex)
-        {
-            if(ds != null)
-                ds.close();
-
-            System.out.println("DIE");
         }
     }
 

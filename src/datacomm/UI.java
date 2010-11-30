@@ -22,8 +22,8 @@ public class UI extends javax.swing.JFrame
     public UI()
     {
         Random gen = new Random();
-        //listen_port = 16000 + gen.nextInt(1000);
-        listen_port = 18888;
+        listen_port = 16000 + gen.nextInt(1000);
+        server_port = -1;
         directory = new ArrayList();
         initComponents();
 
@@ -56,7 +56,7 @@ public class UI extends javax.swing.JFrame
                 else
                 {
                     String[] header = {file_name + ";" + rating};
-                    boolean ack = UDPSend(Packet.buildClientPacket(Packet.PacketType.RATE_CONTENT, header, ""));
+                    boolean ack = UDPSend(Packet.PacketType.RATE_CONTENT, header, "");
                     if(ack)
                     {
                         directory.get(directoryList.getSelectedIndex()).rate(rating);
@@ -309,43 +309,108 @@ public class UI extends javax.swing.JFrame
         {
             if(ds != null)
                 ds.close();
-            System.out.println("CLIENT: Socket Timed out before received ACK");
+            System.out.println("CLIENT WaitForAck: Socket Timed out before received ACK");
             return false;
         }
         catch(Exception ex)
         {
             if(ds != null)
                 ds.close();
-            System.out.println(ex);
+            System.out.println("Client WaitForAck: " + ex);
 
             return false;
         }
     }
-    
-    private boolean UDPSend(DatagramPacket packet)
+
+    private void sendWelcomePacket()
     {
         DatagramSocket ds = null;
         try
         {
             ds = new DatagramSocket(listen_port);
-            ds.send(packet);
-            ds.close();
-            return waitForAck();
+            ds.send(Packet.buildClientWelcomePacket());
+
+            byte buffer[] = new byte[128];
+            DatagramPacket reply = new DatagramPacket(buffer, buffer.length);
+            System.out.println("waiting for welcome reply");
+            ds.setSoTimeout(5000);
+            ds.receive(reply);
+
+            server_port = reply.getPort();
+            System.out.println("Welcome reply received. Server port: " + server_port);
         }
-        catch (Exception ex)
+        catch(SocketTimeoutException ex)
         {
             if(ds != null)
                 ds.close();
-            
-            System.err.println(ex);
-
-            return false;
+            System.out.println("AMG WORLD EXPLODES");
         }
+        catch(Exception ex)
+        {
+            if(ds != null)
+                ds.close();
+            System.out.println("Welcome packet problem: " + ex);
+        }
+    }
+    private boolean UDPSend(Packet.PacketType type, String[] header, String entity)
+    {
+        if(server_port < 0)
+            sendWelcomePacket();
+
+        DatagramSocket ds = null;
+        Packet packet = new Packet();
+        packet.buildPacket(type, header, entity, server_port);
+        for(DatagramPacket p : packet.getPackets())
+        {
+            try
+            {
+                int numTries = 0;
+                do
+                {
+                    if(ds != null)
+                        ds.close();
+                    ds = new DatagramSocket(listen_port);
+                    ds.send(p);
+                    ds.close();
+                    numTries++;
+                }while(!waitForAck() && numTries < 5);
+            }
+            catch (Exception ex)
+            {
+                if(ds != null)
+                    ds.close();
+
+                System.out.println("UDPSend: " + ex);
+
+                return false;
+            }
+        }
+
+        try
+        {
+            int numTries = 0;
+            do
+            {
+                ds = new DatagramSocket(listen_port);
+                ds.send(Packet.buildClientFinPacket());
+                ds.close();
+                ++numTries;
+            }while(!waitForAck() && numTries < 5);
+        }
+        catch(Exception ex)
+        {
+            if(ds != null)
+                ds.close();
+
+            System.out.println("Sending Fin Welcome: " + ex);
+        }
+
+        return true;
     }
 
     private void sendExitPacket()
     {
-        UDPSend(Packet.buildClientPacket(Packet.PacketType.EXIT, null, ""));
+        UDPSend(Packet.PacketType.EXIT, null, "");
 
         System.exit(0);
     }
@@ -371,11 +436,11 @@ private void InformAndUpdateActionPerformed(java.awt.event.ActionEvent evt) {//G
         for(int i = 0; i < files.length; ++i)// Spaces can cause issues, so we replace them with '&%'
             header[i] = files[i].getName().replaceAll(" ", "&%") + ";" + files[i].length();
 
-        UDPSend(Packet.buildClientPacket(Packet.PacketType.INFORM_AND_UPDATE, header, ""));
+        UDPSend(Packet.PacketType.INFORM_AND_UPDATE, header, "");
     }
     catch(Exception ex)
     {
-        System.err.println(ex);
+        System.out.println("InfAndUpd: " + ex);
     }
 }//GEN-LAST:event_InformAndUpdateActionPerformed
 
@@ -383,24 +448,23 @@ private void InformAndUpdateActionPerformed(java.awt.event.ActionEvent evt) {//G
 private void QueryForContentActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_QueryForContentActionPerformed
 
     String file_name[] = {searchField.getText()};
-    UDPSend(Packet.buildClientPacket(Packet.PacketType.QUERY_FOR_CONTENT, file_name, ""));
+    UDPSend(Packet.PacketType.QUERY_FOR_CONTENT, file_name, "");
 
     DatagramSocket ds = null;
     try
     {
-        System.out.println("TRYYYYYYYYYYYYY");
         ds = new DatagramSocket(listen_port);
         byte buffer[] = new byte[128];
 
         System.out.println("CLIENT: Waiting for response from SERVER");
-        DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+        DatagramPacket dgpacket = new DatagramPacket(buffer, buffer.length);
         ds.setSoTimeout(5000);
-        ds.receive(packet);
+        ds.receive(dgpacket);
         ds.close();
 
-        System.out.println("CLIENT: RECEIVED PACKET: " + new String(packet.getData()));
+        System.out.println("CLIENT: RECEIVED PACKET: " + new String(dgpacket.getData()));
         directory.clear();
-        String header[] = new String(packet.getData()).split(Packet.CRLF);
+        String header[] = new String(dgpacket.getData()).split(Packet.CRLF);
         for(int i = 1; i < header.length-2; ++i)
         {
             String splat[] = header[i].split(";");
@@ -417,7 +481,7 @@ private void QueryForContentActionPerformed(java.awt.event.ActionEvent evt) {//G
     }
     catch(SocketTimeoutException ex)
     {
-        System.out.println("CLIENT: Query Packet Response LOST! D:");
+        System.out.println("CLIENT Query For Content: Query Packet Response LOST! D:");
         if(ds != null)
             ds.close();
     }
@@ -425,6 +489,8 @@ private void QueryForContentActionPerformed(java.awt.event.ActionEvent evt) {//G
     {
         if(ds != null)
             ds.close();
+
+        System.out.println("CLIENT Query For Content: " + ex);
     }
 
 }//GEN-LAST:event_QueryForContentActionPerformed
@@ -477,8 +543,10 @@ private void RateContentActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIR
     }
     
     private int listen_port = 0;
+    private int server_port = 0;
     private JFileChooser fileChooser;
     private ArrayList<DirectoryListEntry> directory;
+    private DatagramPacket UDP_packet;
 
     private JTextField ratingField;
     private JButton rateButton;
