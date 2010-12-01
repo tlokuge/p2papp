@@ -360,7 +360,17 @@ public class UI extends javax.swing.JFrame
     private boolean UDPSend(Packet packet)
     {
         if(server_port <= 0)
-            sendWelcomePacket();
+        {
+            try
+            {
+                sendWelcomePacket();
+                Thread.currentThread().sleep(500);
+            }
+            catch(Exception ex)
+            {
+                System.out.println("UDPSend sleep ex: " + ex);
+            }
+        }
 
         DatagramSocket ds = null;
         try
@@ -374,7 +384,7 @@ public class UI extends javax.swing.JFrame
                 ds.close();
                 waitForAck();
             }
-            ds = new DatagramSocket(listen_port);
+            ds = new DatagramSocket();
             ds.send(Packet.buildEmptyClientPacket(Packet.PacketType.FIN, server_port));
             ds.close();
         }

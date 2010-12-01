@@ -44,8 +44,11 @@ public class Packet
             String requestLine = type.toString() + " " + inet.getHostAddress() + " " + CRLF;
             String headerLines = "";
             if(header != null)
-                for(int i = 0; i < header.length; ++i)
-                    headerLines += header[i] + CRLF;
+            {
+                headerLines = header[0] + CRLF;
+                for(int i = 1; i < header.length; ++i)
+                    headerLines += "#%" + header[i] + CRLF;
+            }
 
             headerLines += CRLF;
             String message = headerLines + entity;
@@ -62,40 +65,35 @@ public class Packet
             else
             {
                 System.out.println("Inside segmentor...");
-                int m = 126;
+                int m = 0;
                 int n = 0;
                 int counter = 0;
                 byte[] seqlength;
+                Segment segment;
                 //  String segment;
-                while(n < message.toCharArray().length)
+                while(!(n >= message.toCharArray().length))
                 {
                    String seqNum = 128*counter + " " + requestLine;
                    seqlength = seqNum.getBytes();
-                   System.out.println("SEQ NUM " + seqNum);
-                   System.out.println("SEQ LENGTH " + seqlength.length);
-                   System.out.println("m + n " + (m+n));
 
-
-                   System.out.println("LENGTH of offset(n): " + n);
-                   System.out.println("LENGTH of character grab(m): " + m);
-
-                   Segment segment = new Segment(message.toCharArray(),n, m);
-                   String toAdd = seqNum + segment.toString();
-
-                   buffer = toAdd.getBytes();
+                   m = 128 - seqlength.length;
+                   
                    if((n + m) < message.length() )
                    {
-                        n += m;
                         m = 128 - seqlength.length;
+                        segment = new Segment(message.toCharArray(), n, m);
+                        n += m;
                    }
                    else
                    {
-                        //n = message.length() - (128 + seqlength.length);
+                        m = message.toCharArray().length - n;
+                        segment = new Segment(message.toCharArray(), n, m);
                         n += m;
-                        m = message.length() - n;
                    }
+                   String toAdd = seqNum + segment.toString();
+                   buffer = toAdd.getBytes();
 
-
+                   System.out.println("Packet: " + toAdd);
                    packets.add(new DatagramPacket(buffer, buffer.length, inet, port));
 
                  counter++;
