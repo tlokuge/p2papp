@@ -3,6 +3,7 @@ package datacomm;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.util.ArrayList;
+import javax.swing.text.Segment;
 
 public class Packet
 {
@@ -12,9 +13,9 @@ public class Packet
         INFORM_AND_UPDATE,
 	QUERY_FOR_CONTENT,
 	RATE_CONTENT,
-        FIN,
 	ACK,
         NACK,
+        FIN,
 	EXIT,
     }
     public static final String CRLF = System.getProperty("line.separator") + " ";
@@ -35,8 +36,10 @@ public class Packet
 
     public void buildPacket(PacketType type, String[] header, String entity, int port)
     {
+        System.out.println("Inside BuildPacket");
         try
         {
+            System.out.println("In try...");
             InetAddress inet = InetAddress.getLocalHost();
             String requestLine = type.toString() + " " + inet.getHostAddress() + " " + CRLF;
             String headerLines = "";
@@ -45,30 +48,59 @@ public class Packet
                     headerLines += header[i] + CRLF;
 
             headerLines += CRLF;
-            String message = requestLine + headerLines + entity;
+            String message = headerLines + entity;
+            System.out.println("Message Built...");
             byte buffer[] = message.getBytes();
-            if(buffer.length < 128)
-                packets.add(new DatagramPacket(buffer, buffer.length, inet, port));
-            else
-                for(int i = 0; i < buffer.length; i += 127)
-                    packets.add(new DatagramPacket(buffer, 128, inet, DEFAULT_PORT));
+            System.out.println("LENGTH OF BUFFER " + buffer.length);
 
-            for(int i = 0; i < packets.size(); ++i)
+            if(buffer.length + requestLine.getBytes().length < 128)
             {
-                String data = new String(packets.get(i).getData());
-                String splat[] = data.split(Packet.CRLF);
-                String nRequestLine = data.split(Packet.CRLF)[0];
-                nRequestLine = i*128 + " " + nRequestLine;
-                splat[0] = nRequestLine;
-                String m = "";
-                for(int j = 0; j < splat.length; ++j)
-                    m += splat[j] + CRLF;
+                String m = "0 " + requestLine + message;
+                buffer = m.getBytes();
+                packets.add(new DatagramPacket(buffer, buffer.length, inet, port));
+            }
+            else
+            {
+                System.out.println("Inside segmentor...");
+                int m = 126;
+                int n = 0;
+                int counter = 0;
+                byte[] seqlength;
+                //  String segment;
+                while(n < message.toCharArray().length)
+                {
+                   String seqNum = 128*counter + " " + requestLine;
+                   seqlength = seqNum.getBytes();
+                   System.out.println("SEQ NUM " + seqNum);
+                   System.out.println("SEQ LENGTH " + seqlength.length);
+                   System.out.println("m + n " + (m+n));
 
-                System.out.println(m);
-                byte buf[] = m.getBytes();
-                System.out.println("Buffer: " + buf.length);
-                System.out.println("i = " + i + " packets size: " + packets.size());
-                packets.set(i, new DatagramPacket(buf, buf.length, inet, DEFAULT_PORT));
+
+                   System.out.println("LENGTH of offset(n): " + n);
+                   System.out.println("LENGTH of character grab(m): " + m);
+
+                   Segment segment = new Segment(message.toCharArray(),n, m);
+                   String toAdd = seqNum + segment.toString();
+
+                   buffer = toAdd.getBytes();
+                   if((n + m) < message.length() )
+                   {
+                        n += m;
+                        m = 128 - seqlength.length;
+                   }
+                   else
+                   {
+                        //n = message.length() - (128 + seqlength.length);
+                        n += m;
+                        m = message.length() - n;
+                   }
+
+
+                   packets.add(new DatagramPacket(buffer, buffer.length, inet, port));
+
+                 counter++;
+
+                }
             }
         }
         catch(Exception ex)
@@ -77,34 +109,31 @@ public class Packet
         }
     }
 
-    private static DatagramPacket buildEmptyClientPacket(PacketType type)
+    public static DatagramPacket buildEmptyClientPacket(PacketType type, int port)
     {
         try
         {
             InetAddress inet = InetAddress.getLocalHost();
+            String requestLine = "0 " + type.toString() + " " + inet.getHostName() + " " + inet.getHostAddress() + CRLF;
+            byte buffer[] = requestLine.getBytes();
 
-            String request = type.toString() + " " + inet.getHostName() + " " + inet.getHostAddress() + CRLF;
-            String header = "" + CRLF;
-
-            String message = request + header;
-            byte buffer[] = message.getBytes();
-            return new DatagramPacket(buffer, buffer.length, inet, DEFAULT_PORT);
+            return new DatagramPacket(buffer, buffer.length, inet, port);
         }
         catch(Exception ex)
         {
-            System.err.println("buildEmptyClientPacket: " + ex);
-            return null;
+            System.out.println("buildEmptyClientPacket(): " + ex);
         }
+        return null;
     }
 
     public static DatagramPacket buildClientWelcomePacket()
     {
-        return buildEmptyClientPacket(PacketType.WELCOME);
+        return buildEmptyClientPacket(PacketType.WELCOME, DEFAULT_PORT);
     }
 
-    public static DatagramPacket buildClientFinPacket()
+    public static DatagramPacket buildClientFinPacket(int port)
     {
-        return buildEmptyClientPacket(PacketType.FIN);
+        return buildEmptyClientPacket(PacketType.FIN, port);
     }
 
     public static DatagramPacket buildServerPacket(PacketType type, String status, String[] header, String entity, InetAddress inet, int port)
@@ -130,7 +159,7 @@ public class Packet
         }
         catch(Exception ex)
         {
-            System.err.println("buildServerPacket: " + ex);
+            System.err.println(ex);
         }
         return null;
     }
