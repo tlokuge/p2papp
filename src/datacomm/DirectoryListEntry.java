@@ -5,15 +5,20 @@ public class DirectoryListEntry
 {
     private String file;
     private String address;
-    private long size;
+    private String size;
     private double rating;
     private int port;
 
-    public DirectoryListEntry(String file, String address, long size, double rating, int port)
+    public DirectoryListEntry(String file, String address, String size, double rating, int port)
     {
         this.file = file;
         this.address = address;
-        this.size = size;
+
+        this.size = "";
+        for(int i = 0; i < size.length(); ++i)
+            if(Character.isDigit(size.charAt(i)))
+                this.size += size.charAt(i);
+        
         this.rating = rating;
         this.port = port;
     }
@@ -33,7 +38,7 @@ public class DirectoryListEntry
 
     public String getFile()    { return file; }
     public String getAddress() { return address; }
-    public long getSize()      { return size; }
+    public String getSize()    { return size; }
     public double getRating()  { return rating; }
     public int getPort()       { return port; }
 

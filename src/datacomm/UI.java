@@ -379,7 +379,7 @@ public class UI extends javax.swing.JFrame
             {
                 if(p.getPort() != server_port)
                     p.setPort(server_port);
-                ds = new DatagramSocket(listen_port);
+                ds = new DatagramSocket();
                 ds.send(p);
                 ds.close();
                 waitForAck();
@@ -470,7 +470,7 @@ private void QueryForContentActionPerformed(java.awt.event.ActionEvent evt) {//G
         {
             String splat[] = header[i].split(";");
             String file = splat[0];
-            long size = Long.parseLong(splat[1]);
+            String size = splat[1];
             String address = splat[2];
             int port = Integer.parseInt(splat[3]);
             double rating = Double.parseDouble(splat[4]);

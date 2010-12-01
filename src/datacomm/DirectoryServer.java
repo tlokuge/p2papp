@@ -45,6 +45,10 @@ class DirectoryServer extends JFrame
         private int listen_port;
 
         private ArrayList<DatagramPacket> packets;
+
+        private InetAddress client_inet;
+        private int client_port;
+
         public ServerThread(DatagramPacket packet)
         {
             this.packet = packet;
@@ -55,6 +59,9 @@ class DirectoryServer extends JFrame
             listen_port = -1;
 
             packets = new ArrayList<DatagramPacket>();
+
+            client_inet = null;
+            client_port = -1;
         }
 
         public void run()
@@ -94,9 +101,15 @@ class DirectoryServer extends JFrame
                 if(type.equalsIgnoreCase(Packet.PacketType.WELCOME.toString()))
                     sendWelcomeReply();
                 else if(type.equalsIgnoreCase(Packet.PacketType.FIN.toString()))
-                    parsePacket(assemblePackets());
+                {
+                    assemblePackets();
+                    parsePacket();
+                }
                 else
+                {
                     packets.add(packet);
+                    sendAck(packet);
+                }
             }
         }
 
@@ -112,6 +125,9 @@ class DirectoryServer extends JFrame
                 DatagramPacket p = Packet.buildServerPacket(Packet.PacketType.WELCOME, STATUS_OK, null, "", packet.getAddress(), packet.getPort());
                 socket.send(p);
                 socket.close();
+
+                client_port = packet.getPort();
+                client_inet = packet.getAddress();
             }
             catch(Exception ex)
             {
@@ -154,7 +170,7 @@ class DirectoryServer extends JFrame
             return false;
         }
 
-        public String assemblePackets()
+        public void assemblePackets()
         {
             String message = "";
 
@@ -176,9 +192,13 @@ class DirectoryServer extends JFrame
                     message += splat[i];
             }
 
-            System.out.println(message);
-            
-            return message;
+            message = message.replaceAll("#%", Packet.CRLF);
+
+            String requestLine = new String(packets.get(0).getData()).split(Packet.CRLF)[0] + Packet.CRLF;
+            message = requestLine + message;
+            byte buffer[] = message.getBytes();
+
+            packet = new DatagramPacket(buffer, buffer.length);            
         }
 
         public void updateFileListing(DatagramPacket packet)
@@ -188,8 +208,7 @@ class DirectoryServer extends JFrame
             for(int i = 0; i < files.length; ++i)
                 files[i] = splat[i+1];
 
-            String address = packet.getAddress().getHostAddress();
-            int port = packet.getPort();
+            String address = client_inet.getHostAddress();
 
             for(int i = 0; i < files.length; ++i)
             {
@@ -202,7 +221,7 @@ class DirectoryServer extends JFrame
 
                 if(skip)
                     continue;
-                DirectoryListEntry entry = new DirectoryListEntry(file_split[0], address, Long.parseLong(file_split[1]), 1, port);
+                DirectoryListEntry entry = new DirectoryListEntry(file_split[0], address, file_split[1], 1, client_port);
                 directory.add(entry);
             }
             buildListTextArea();
@@ -271,8 +290,10 @@ class DirectoryServer extends JFrame
             printDirectory();
         }
 
-        public void parsePacket(String data)
+        public void parsePacket()
         {
+            String data = new String(packet.getData());
+            System.out.println("data: " + data);
             String packetType = data.split(" ")[1];
             Packet.PacketType type = Packet.PacketType.valueOf(packetType);
 
@@ -298,13 +319,12 @@ class DirectoryServer extends JFrame
             DatagramSocket socket = null;
             try
             {
-                int port = rcvPacket.getPort();
-                InetAddress inet = rcvPacket.getAddress();
-                DatagramPacket ack = Packet.buildServerPacket(Packet.PacketType.ACK, STATUS_OK, null, "", inet, port);
+                String header[] = {new String(rcvPacket.getData()).split(" ")[0]};
+                DatagramPacket ack = Packet.buildServerPacket(Packet.PacketType.ACK, STATUS_OK, header, "", client_inet, client_port);
                 socket = new DatagramSocket();
                 socket.send(ack);
                 socket.close();
-                System.out.println("SERVER: ACK sent to " + inet.getHostAddress() + ":" + port);
+                System.out.println("SERVER: ACK sent to " + client_inet.getHostAddress() + ":" + client_port);
             }
             catch(Exception ex)
             {
