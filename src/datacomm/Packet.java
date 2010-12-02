@@ -16,7 +16,6 @@ public class Packet
 	QUERY_FOR_CONTENT,
 	RATE_CONTENT,
 	ACK,
-        NACK,
         FIN,
 	EXIT,
     }

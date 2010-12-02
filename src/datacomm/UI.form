@@ -95,7 +95,7 @@
                       </Group>
                       <EmptySpace min="-2" pref="98" max="-2" attributes="0"/>
                   </Group>
-                  <Component id="DownloadContent" alignment="0" min="-2" pref="211" max="-2" attributes="0"/>
+                  <Component id="downloadButton" alignment="0" min="-2" pref="211" max="-2" attributes="0"/>
                   <Group type="102" alignment="0" attributes="0">
                       <Group type="103" groupAlignment="0" attributes="0">
                           <Group type="102" attributes="0">
@@ -165,7 +165,7 @@
               </Group>
               <EmptySpace max="-2" attributes="0"/>
               <Group type="103" groupAlignment="3" attributes="0">
-                  <Component id="DownloadContent" alignment="3" min="-2" pref="57" max="-2" attributes="1"/>
+                  <Component id="downloadButton" alignment="3" min="-2" pref="57" max="-2" attributes="1"/>
                   <Component id="RateContent" alignment="3" min="-2" pref="57" max="-2" attributes="1"/>
               </Group>
               <EmptySpace type="unrelated" max="-2" attributes="0"/>
@@ -200,10 +200,13 @@
         <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="QueryForContentActionPerformed"/>
       </Events>
     </Component>
-    <Component class="javax.swing.JButton" name="DownloadContent">
+    <Component class="javax.swing.JButton" name="downloadButton">
       <Properties>
         <Property name="text" type="java.lang.String" value="Download"/>
       </Properties>
+      <Events>
+        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="downloadButtonActionPerformed"/>
+      </Events>
     </Component>
     <Component class="javax.swing.JButton" name="InformAndUpdate">
       <Properties>

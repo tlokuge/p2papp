@@ -19,11 +19,12 @@ public class UI extends javax.swing.JFrame
     /** Creates new form UI */
     public UI()
     {
-        Random gen = new Random();
-        listen_port = 16000 + gen.nextInt(1000);
+        listen_port = 16000 + new Random().nextInt(1000);
         directory = new ArrayList();
-        initComponents();
 
+        tcp = new ClientP2PTCPControl(listen_port, "", -1);
+
+        initComponents();
         initRateFrame();
     }
 
@@ -96,7 +97,7 @@ public class UI extends javax.swing.JFrame
         jScrollPane1 = new javax.swing.JScrollPane();
         directoryList = new javax.swing.JList();
         QueryForContent = new javax.swing.JButton();
-        DownloadContent = new javax.swing.JButton();
+        downloadButton = new javax.swing.JButton();
         InformAndUpdate = new javax.swing.JButton();
         searchField = new javax.swing.JTextField();
         RateContent = new javax.swing.JButton();
@@ -160,7 +161,12 @@ public class UI extends javax.swing.JFrame
             }
         });
 
-        DownloadContent.setText("Download");
+        downloadButton.setText("Download");
+        downloadButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                downloadButtonActionPerformed(evt);
+            }
+        });
 
         InformAndUpdate.setText("Upload Files");
         InformAndUpdate.addActionListener(new java.awt.event.ActionListener() {
@@ -221,7 +227,7 @@ public class UI extends javax.swing.JFrame
                             .addComponent(jLabel3, javax.swing.GroupLayout.DEFAULT_SIZE, 209, Short.MAX_VALUE)
                             .addComponent(jLabel5))
                         .addGap(98, 98, 98))
-                    .addComponent(DownloadContent, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, 211, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(downloadButton, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, 211, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addGroup(javax.swing.GroupLayout.Alignment.LEADING, layout.createSequentialGroup()
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addGroup(layout.createSequentialGroup()
@@ -273,7 +279,7 @@ public class UI extends javax.swing.JFrame
                     .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(DownloadContent, javax.swing.GroupLayout.PREFERRED_SIZE, 57, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(downloadButton, javax.swing.GroupLayout.PREFERRED_SIZE, 57, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(RateContent, javax.swing.GroupLayout.PREFERRED_SIZE, 57, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(Exit, javax.swing.GroupLayout.PREFERRED_SIZE, 42, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -503,7 +509,10 @@ private void QueryForContentActionPerformed(java.awt.event.ActionEvent evt) {//G
         Globals.error("Server cannot be queried with an empty search. Please enter some text in the search field before searching", true);
         return;
     }
-    
+
+    Object[] listdata = {""};
+    directoryList.setListData(listdata);
+    ratingList.setListData(listdata);
     String file_name[] = {searchField.getText()};
 
     Packet query = new Packet();
@@ -524,6 +533,7 @@ private void QueryForContentActionPerformed(java.awt.event.ActionEvent evt) {//G
             byte buffer[] = new byte[Globals.BUF_SIZE];
             DatagramPacket p = new DatagramPacket(buffer, buffer.length);
             Globals.debug("queryForContent: Waiting for packet");
+            ds.setSoTimeout(timeout_time);
             ds.receive(p);
             ds.close();
 
@@ -552,9 +562,9 @@ private void QueryForContentActionPerformed(java.awt.event.ActionEvent evt) {//G
         for(int i = 1; i < header.length; ++i)
         {
             Globals.debug("File " + i + " : " + header[i]);
-            if(header[i].isEmpty())
-                continue;
             String splat[] = header[i].split(";");
+            if(splat.length < 2)
+                continue;
             String file = splat[0];
             String size = splat[1];
             String address = splat[2];
@@ -607,6 +617,27 @@ private void RateContentActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIR
 
 }//GEN-LAST:event_RateContentActionPerformed
 
+private void downloadButtonActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_downloadButtonActionPerformed
+{//GEN-HEADEREND:event_downloadButtonActionPerformed
+    if(directoryList.getSelectedIndex() == -1)
+    {
+        Globals.error("Please select a file to be downloaded!", true);
+        return;
+    }
+    
+    if(directoryList.getSelectedIndices().length > 1)
+    {
+        Globals.error("You can only download one file at a time (Sorry!).\nSo please try again with only one file selected!", true);
+        return;
+    }
+
+    DirectoryListEntry entry = directory.get(directoryList.getSelectedIndex());
+    
+    tcp.setTransmitInfo(entry.getAddress(), entry.getPort());
+    tcp.requestFile(entry);
+    //tcp.transmitFile(f);
+}//GEN-LAST:event_downloadButtonActionPerformed
+
 
     class JPEGExtensionFilter extends FileFilter
     {
@@ -650,13 +681,15 @@ private void RateContentActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIR
     private JButton rateButton;
     private JFrame rateFrame;
 
+    private ClientP2PTCPControl tcp;
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JButton DownloadContent;
     private javax.swing.JButton Exit;
     private javax.swing.JButton InformAndUpdate;
     private javax.swing.JButton QueryForContent;
     private javax.swing.JButton RateContent;
     private javax.swing.JList directoryList;
+    private javax.swing.JButton downloadButton;
     private javax.swing.JDialog jDialog1;
     private javax.swing.JFrame jFrame1;
     private javax.swing.JFrame jFrame2;

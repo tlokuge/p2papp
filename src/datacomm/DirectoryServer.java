@@ -198,7 +198,7 @@ class DirectoryServer extends JFrame
 
             String query = "";
             for(int i = 0; i < searchQuery.length(); ++i)
-                if(Character.isLetter(searchQuery.charAt(i)))
+                if(!Character.isWhitespace(searchQuery.charAt(i)))
                     query += searchQuery.charAt(i);
             
             ArrayList<DirectoryListEntry> results = new ArrayList<DirectoryListEntry>();
