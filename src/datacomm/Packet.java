@@ -22,10 +22,6 @@ public class Packet
     }
     public static final String CRLF = System.getProperty("line.separator") + " ";
 
-    private static final int DEFAULT_PORT = 40110;
-
-    private static PacketSorter sorter = null;
-
     public ArrayList<DatagramPacket> packets;
 
     public Packet()
@@ -40,10 +36,10 @@ public class Packet
 
     public void buildPacket(PacketType type, String[] header, String entity, int port)
     {
-        System.out.println("Inside BuildPacket");
+        Globals.debug("Inside BuildPacket");
         try
         {
-            System.out.println("In try...");
+            Globals.debug("In try...");
             InetAddress inet = InetAddress.getLocalHost();
             String requestLine = type.toString() + " " + inet.getHostAddress() + " " + CRLF;
             String headerLines = "";
@@ -51,7 +47,7 @@ public class Packet
             {
                 headerLines = header[0] + CRLF;
                 for(int i = 1; i < header.length; ++i)
-                    headerLines += "#%" + header[i] + CRLF;
+                    headerLines += Globals.HEADER_APPEND + header[i] + CRLF;
             }
 
             if(entity == null)
@@ -59,11 +55,11 @@ public class Packet
 
             headerLines += CRLF;
             String message = headerLines + entity;
-            System.out.println("Message Built...");
+            Globals.debug("Message Built...");
             byte buffer[] = message.getBytes();
-            System.out.println("LENGTH OF BUFFER " + buffer.length);
+            Globals.debug("LENGTH OF BUFFER " + buffer.length);
 
-            if(buffer.length + requestLine.getBytes().length < 128)
+            if(buffer.length + requestLine.getBytes().length < Globals.BUF_SIZE)
             {
                 String m = "0 " + requestLine + message;
                 buffer = m.getBytes();
@@ -71,7 +67,7 @@ public class Packet
             }
             else
             {
-                System.out.println("Inside segmentor...");
+                Globals.debug("Inside segmentor...");
                 int m = 0;
                 int n = 0;
                 int counter = 0;
@@ -80,14 +76,14 @@ public class Packet
                 //  String segment;
                 while(!(n >= message.toCharArray().length))
                 {
-                   String seqNum = 128*counter + " " + requestLine;
+                   String seqNum = Globals.BUF_SIZE * counter + " " + requestLine;
                    seqlength = seqNum.getBytes();
 
-                   m = 128 - seqlength.length;
+                   m = Globals.BUF_SIZE - seqlength.length;
                    
                    if((n + m) < message.length() )
                    {
-                        m = 128 - seqlength.length;
+                        m = Globals.BUF_SIZE - seqlength.length;
                         segment = new Segment(message.toCharArray(), n, m);
                         n += m;
                    }
@@ -100,7 +96,7 @@ public class Packet
                    String toAdd = seqNum + segment.toString();
                    buffer = toAdd.getBytes();
 
-                   System.out.println("Packet: " + toAdd);
+                   Globals.debug("Packet: " + toAdd);
                    packets.add(new DatagramPacket(buffer, buffer.length, inet, port));
 
                  counter++;
@@ -110,7 +106,7 @@ public class Packet
         }
         catch(Exception ex)
         {
-            System.out.println("buildPacket: " + ex);
+            Globals.debug("buildPacket: " + ex);
         }
     }
 
@@ -126,14 +122,14 @@ public class Packet
         }
         catch(Exception ex)
         {
-            System.out.println("buildEmptyClientPacket(): " + ex);
+            Globals.debug("buildEmptyClientPacket(): " + ex);
         }
         return null;
     }
 
     public static DatagramPacket buildClientWelcomePacket()
     {
-        return buildEmptyClientPacket(PacketType.WELCOME, DEFAULT_PORT);
+        return buildEmptyClientPacket(PacketType.WELCOME, Globals.SERVER_WELCOME_PORT);
     }
 
     public static DatagramPacket buildClientFinPacket(int port)
@@ -152,7 +148,7 @@ public class Packet
         }
         catch(Exception ex)
         {
-            System.out.println("buildEmptyPacket: " + ex);
+            Globals.debug("buildEmptyPacket: " + ex);
         }
 
         return null;
@@ -169,20 +165,16 @@ public class Packet
             {
                 headerLines = header[0] + CRLF;
                 for(int i = 1; i < header.length; ++i)
-                    headerLines += "#%" + header[i] + CRLF;
+                    headerLines += Globals.HEADER_APPEND + header[i] + CRLF;
             }
             
             headerLines += CRLF;
 
             String message =  headerLines + entity;
 
-            System.out.println("BUILDING SERVER PACKET");
-            System.out.println("REQUESTLINE: " + requestLine);
-            System.out.println("HEADERLINES: " + headerLines);
-            System.out.println("ENTITY: " + entity);
             byte buffer[] = message.getBytes();
 
-            if(buffer.length + requestLine.getBytes().length < 128)
+            if(buffer.length + requestLine.getBytes().length < Globals.BUF_SIZE)
             {
                 String m = "0 " + requestLine + message;
                 buffer = m.getBytes();
@@ -190,7 +182,7 @@ public class Packet
             }
             else
             {
-                System.out.println("Inside segmentor...");
+                Globals.debug("Inside segmentor...");
                 int m = 0;
                 int n = 0;
                 int counter = 0;
@@ -199,14 +191,14 @@ public class Packet
                 //  String segment;
                 while(!(n >= message.toCharArray().length))
                 {
-                   String seqNum = 128*counter + " " + requestLine;
+                   String seqNum = Globals.BUF_SIZE*counter + " " + requestLine;
                    seqlength = seqNum.getBytes();
 
-                   m = 128 - seqlength.length;
+                   m = Globals.BUF_SIZE - seqlength.length;
 
                    if((n + m) < message.length() )
                    {
-                        m = 128 - seqlength.length;
+                        m = Globals.BUF_SIZE - seqlength.length;
                         segment = new Segment(message.toCharArray(), n, m);
                         n += m;
                    }
@@ -219,7 +211,7 @@ public class Packet
                    String toAdd = seqNum + segment.toString();
                    buffer = toAdd.getBytes();
 
-                   System.out.println("Packet: " + toAdd);
+                   Globals.debug("Packet: " + toAdd);
                    packets.add(new DatagramPacket(buffer, buffer.length, inet, port));
 
                  counter++;
@@ -231,7 +223,7 @@ public class Packet
         }
         catch(Exception ex)
         {
-            System.out.println("buildServerPacket(): " + ex);
+            Globals.debug("buildServerPacket(): " + ex);
         }
         //return null;
     }
@@ -259,17 +251,23 @@ public class Packet
 
     public static DatagramPacket assemblePackets(ArrayList<DatagramPacket> packets)
     {
+        if(packets.isEmpty())
+            return null;
+
+        if(packets.size() == 1)
+            return packets.get(0);
+        
         String message = "";
 
-        System.out.println("Before sort:");
+        Globals.debug("Before sort:");
         for(DatagramPacket p : packets)
-            System.out.println(Integer.parseInt(new String(p.getData()).split(" ")[0]));
+            Globals.debug(Integer.parseInt(new String(p.getData()).split(" ")[0]));
 
         Collections.sort(packets, new PacketSorter());
 
-        System.out.println("After sort:");
+        Globals.debug("After sort:");
         for(DatagramPacket p : packets)
-            System.out.println(Integer.parseInt(new String(p.getData()).split(" ")[0]));
+            Globals.debug(Integer.parseInt(new String(p.getData()).split(" ")[0]));
 
         for(DatagramPacket p : packets)
         {
@@ -279,7 +277,7 @@ public class Packet
                 message += splat[i];
         }
 
-        message = message.replaceAll("#%", Packet.CRLF);
+        message = message.replaceAll(Globals.HEADER_APPEND, Packet.CRLF);
 
         String requestLine = new String(packets.get(0).getData()).split(Packet.CRLF)[0] + Packet.CRLF;
         message = requestLine + message;

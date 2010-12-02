@@ -10,12 +10,10 @@ import javax.swing.*;
 
 class DirectoryServer extends JFrame
 {
-    public final static int BUFSIZE = 128;
     public final static String STATUS_OK  = "200(OK)";
     public final static String STATUS_ERR = "400(ERROR)";
 
     public ArrayList<DirectoryListEntry> directory;
-
     private JTextArea list_area;
 
     public DirectoryServer()
@@ -45,6 +43,8 @@ class DirectoryServer extends JFrame
         private int listen_port;
 
         private ArrayList<DatagramPacket> packets;
+        public ArrayList<Integer> received_segNums;
+
 
         private InetAddress client_inet;
         private int client_port;
@@ -59,6 +59,7 @@ class DirectoryServer extends JFrame
             listen_port = -1;
 
             packets = new ArrayList<DatagramPacket>();
+            received_segNums = new ArrayList<Integer>();
 
             client_inet = null;
             client_port = -1;
@@ -80,11 +81,11 @@ class DirectoryServer extends JFrame
                     {
                         if( socket != null)
                                 socket.close();
-                        byte buffer[] = new byte[128];
+                        byte buffer[] = new byte[Globals.BUF_SIZE];
                         socket = new DatagramSocket(listen_port);
-                        System.out.println(listen_port);
+                        Globals.debug(listen_port);
                         packet = new DatagramPacket(buffer, buffer.length);
-                        System.out.println("ServerThread: Waiting for packet");
+                        Globals.debug("ServerThread: Waiting for packet");
                         socket.receive(packet);
                         socket.close();
                     }
@@ -93,25 +94,33 @@ class DirectoryServer extends JFrame
                         if(socket != null)
                             socket.close();
                         
-                        System.out.println("HandlePacket() loop: " + ex);
+                        Globals.debug("HandlePacket() loop: " + ex);
                         ex.printStackTrace();
                     }
                 }
                 
                 String str = new String(packet.getData());
-                System.out.println("SERVER - RECEIVED PACKET: " + str);
+                Globals.debug("SERVER - RECEIVED PACKET:\n" + str);
 
-                String type = str.split(" ")[1];
+                String splat[] = str.split(" ");
+                String type = splat[1];
+                String segNum = splat[0];
                 if(type.equalsIgnoreCase(Packet.PacketType.WELCOME.toString()))
                     sendWelcomeReply();
                 else if(type.equalsIgnoreCase(Packet.PacketType.FIN.toString()))
                 {
                     packet = Packet.assemblePackets(packets);
                     parsePacket();
+                    packets.clear();
+                    received_segNums.clear();
                 }
                 else
                 {
-                    packets.add(packet);
+                    if(!received_segNums.contains(Integer.parseInt(segNum)))
+                        packets.add(packet);
+                    else
+                        Globals.debug("Received duplicate packet: " + segNum);
+
                     sendAck(packet);
                 }
             }
@@ -119,9 +128,9 @@ class DirectoryServer extends JFrame
 
         public void sendWelcomeReply()
         {
-            System.out.println("sendWelcomeReply()");
+            Globals.debug("sendWelcomeReply()");
             listen_port = 16000 + new Random().nextInt(1000);
-            System.out.println("listen_port = " + listen_port);
+            Globals.debug("listen_port = " + listen_port);
             DatagramSocket socket = null;
             try
             {
@@ -137,12 +146,15 @@ class DirectoryServer extends JFrame
                 if(socket != null)
                     socket.close();
 
-                System.out.println("sendWelcomeReply(): " + ex);
+                Globals.debug("sendWelcomeReply(): " + ex);
             }
         }
 
         public void updateFileListing(DatagramPacket packet)
         {
+            if(packet == null)
+                Globals.error("updateFileListing(): Received NULL pointer. Aborting!", true);
+            
             String splat[] = new String(packet.getData()).split(Packet.CRLF);
             String[] files = new String[splat.length];
             for(int i = 0; i < files.length; ++i)
@@ -150,10 +162,20 @@ class DirectoryServer extends JFrame
 
             String address = client_inet.getHostAddress();
 
+            Globals.debug("Number of files to be split: " + files.length);
             for(int i = 1; i < files.length; ++i)
             {
+                Globals.debug("Before split: " + files[i]);
                 String[] file_split = files[i].replaceAll("&%", " ").split(";"); // Convert all our &% back to spaces
-                System.out.println(file_split[0] + " - " + file_split[1]);
+                if(file_split.length < 2)
+                {
+                    Globals.debug("S: Attempt to add invalid files to server directory. Aborted.");
+                    continue;
+                }
+                Globals.debug("Size of split: " + file_split.length);
+                Globals.debug("File Name:" + file_split[0]);
+                Globals.debug("File size:" + file_split[1]);
+                Globals.debug(file_split[0] + " - " + file_split[1]);
                 boolean skip = false;
                 for(DirectoryListEntry entry : directory)
                     if(entry.getFile().equals(file_split[0])) // Make sure file with same name does not exist on server
@@ -171,7 +193,7 @@ class DirectoryServer extends JFrame
 
         public void queryListing(DatagramPacket packet)
         {
-            System.out.println("QUERY");
+            Globals.debug("QUERY");
             String searchQuery = new String(packet.getData()).split(Packet.CRLF)[1].toLowerCase();
 
             String query = "";
@@ -184,7 +206,7 @@ class DirectoryServer extends JFrame
             {
                 if(entry.getFile().toLowerCase().contains(query))
                 {
-                    System.out.println("Found entry");
+                    Globals.debug("Found entry");
                     results.add(entry);
                 }
             }
@@ -237,11 +259,11 @@ class DirectoryServer extends JFrame
         public void parsePacket()
         {
             String data = new String(packet.getData());
-            System.out.println("data: " + data);
+            Globals.debug("data: " + data);
             String packetType = data.split(" ")[1];
             Packet.PacketType type = Packet.PacketType.valueOf(packetType);
 
-            System.out.println("SERVER: Parsing " + type + " PACKET");
+            Globals.debug("SERVER: Parsing " + type + " PACKET");
             switch(type)
             {
                 case INFORM_AND_UPDATE: updateFileListing(packet);   break;
@@ -264,18 +286,19 @@ class DirectoryServer extends JFrame
             try
             {
                 String header = new String(rcvPacket.getData()).split(" ")[0];
+                received_segNums.add(Integer.parseInt(header));
                 DatagramPacket ack = Packet.buildEmptyServerPacket(Packet.PacketType.ACK, header, client_inet, client_port);
                 socket = new DatagramSocket();
                 socket.send(ack);
                 socket.close();
-                System.out.println("SERVER: ACK sent to " + client_inet.getHostAddress() + ":" + client_port);
+                Globals.debug("SERVER: ACK sent to " + client_inet.getHostAddress() + ":" + client_port);
             }
             catch(Exception ex)
             {
                 if(socket != null)
                     socket.close();
                 
-                System.out.println("S: SendAck(): " + ex);
+                Globals.debug("S: SendAck(): " + ex);
             }
         }
 
@@ -285,7 +308,7 @@ class DirectoryServer extends JFrame
             try
             {
                 ds = new DatagramSocket(listen_port);
-                byte buffer[] = new byte[128];
+                byte buffer[] = new byte[Globals.BUF_SIZE];
 
                 DatagramPacket p = new DatagramPacket(buffer, buffer.length);
                 ds.setSoTimeout(5000);
@@ -293,20 +316,20 @@ class DirectoryServer extends JFrame
                 ds.close();
 
                 String str = new String(p.getData());
-                System.out.println("S: Received packet: " + str);
+                Globals.debug("S: Received packet: " + str);
             }
             catch(SocketTimeoutException ex)
             {
                 if(ds != null)
                     ds.close();
-                System.out.println("S: ACK timed out");
+                Globals.debug("S: ACK timed out");
             }
             catch(Exception ex)
             {
                 if(ds != null)
                     ds.close();
 
-                System.out.println("S: WaitForAck(): " + ex);
+                Globals.debug("S: WaitForAck(): " + ex);
             }
         }
 
@@ -319,7 +342,7 @@ class DirectoryServer extends JFrame
                 {
                     ds = new DatagramSocket();
 
-                    System.out.println("S: Port " + p.getPort() + " transmitting packet:\n"+ new String(p.getData()));
+                    Globals.debug("S: Port " + p.getPort() + " transmitting packet:\n"+ new String(p.getData()));
                     ds.send(p);
                     ds.close();
 
@@ -327,6 +350,7 @@ class DirectoryServer extends JFrame
                 }
 
                 ds = new DatagramSocket();
+                Globals.debug("S: Sending FIN");
                 ds.send(Packet.buildEmptyServerPacket(Packet.PacketType.FIN, STATUS_OK, client_inet, client_port));
                 ds.close();
 
@@ -336,7 +360,7 @@ class DirectoryServer extends JFrame
                 if(ds != null)
                     ds.close();
 
-                System.out.println("sendPacket(): " + ex);
+                Globals.debug("sendPacket(): " + ex);
             }
         }
     }
@@ -352,9 +376,9 @@ class DirectoryServer extends JFrame
     public synchronized void printDirectory()
     {
         for(DirectoryListEntry entry : directory)
-            System.out.println(entry);
-        System.out.println("Number of entries:" + directory.size());
-        System.out.println("-----------------------------------");
+            Globals.debug(entry);
+        Globals.debug("Number of entries:" + directory.size());
+        Globals.debug("-----------------------------------");
     }
 
     public void packetWaitLoop()
@@ -362,22 +386,22 @@ class DirectoryServer extends JFrame
         DatagramSocket ds = null;
         try
         {
-            ds = new DatagramSocket(40110);
-            byte buffer[] = new byte[BUFSIZE];
+            ds = new DatagramSocket(Globals.SERVER_WELCOME_PORT);
+            byte buffer[] = new byte[Globals.BUF_SIZE];
 
             while(true)
             {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 ds.receive(packet);
                 new ServerThread(packet);
-                buffer = new byte[BUFSIZE];
+                buffer = new byte[Globals.BUF_SIZE];
             }
         }
         catch (Exception ex)
         {
             if(ds != null)
                 ds.close();
-            System.out.println("packetWaitLoop(): " + ex);
+            Globals.debug("packetWaitLoop(): " + ex);
         }
 
 
@@ -387,7 +411,7 @@ class DirectoryServer extends JFrame
     
     public static void main(String ar[])
     {
-        System.out.println("Server initialized.");
+        Globals.debug("Server initialized.");
         DirectoryServer server = new DirectoryServer();
         server.packetWaitLoop();
     }
