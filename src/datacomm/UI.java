@@ -8,6 +8,7 @@ import java.io.*;
 import javax.swing.*;
 import java.util.ArrayList;
 import java.util.Random;
+import java.util.Timer;
 import javax.swing.JFileChooser;
 import javax.swing.filechooser.FileFilter;
 
@@ -290,7 +291,7 @@ public class UI extends javax.swing.JFrame
         ratingList.setListData(ratText);
     }
 
-    private boolean waitForAck()
+    private ReplyCode waitForAck()
     {
         System.out.println("CLIENT: Waiting for ACK on port: " + listen_port);
         DatagramSocket ds = null;
@@ -301,28 +302,29 @@ public class UI extends javax.swing.JFrame
 
             DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
             packet.setPort(server_port);
-            ds.setSoTimeout(5000);
+            ds.setSoTimeout(timeout_time);
             ds.receive(packet);
             ds.close();
             String str = new String(packet.getData());
             System.out.println("CLIENT: RECEIVED PACKET: " + str);
 
-            return true;
+            return ReplyCode.REPLY_OK;
         }
         catch(SocketTimeoutException ex)
         {
             if(ds != null)
                 ds.close();
             System.out.println("CLIENT: Socket Timed out before received ACK");
-            return false;
+            return ReplyCode.REPLY_TIMEOUT;
         }
         catch(Exception ex)
         {
             if(ds != null)
                 ds.close();
             System.out.println("waitForAck(): " + ex);
+            ex.printStackTrace();
 
-            return false;
+            return ReplyCode.REPLY_ERROR;
         }
     }
 
@@ -331,14 +333,25 @@ public class UI extends javax.swing.JFrame
         DatagramSocket ds = null;
         try
         {
+            long before = System.currentTimeMillis();
             ds = new DatagramSocket(listen_port);
             ds.send(Packet.buildClientWelcomePacket());
 
             byte buffer[] = new byte[128];
             DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-            ds.setSoTimeout(15000);
+            ds.setSoTimeout(timeout_time);
             ds.receive(packet);
             ds.close();
+
+            long after = System.currentTimeMillis();
+            sample_rtt = (int) (after - before);
+            estimated_rtt = (int) (estimated_rtt * (1-0.125) + sample_rtt * (0.125));
+            dev_rtt = (int) (0.25 * Math.abs(sample_rtt - estimated_rtt));
+            timeout_time = estimated_rtt + (4 * dev_rtt);
+            System.out.println("Estimated RTT: " + estimated_rtt);
+            System.out.println("Sample RTT: " + sample_rtt);
+            System.out.println("Dev RTT: " + dev_rtt);
+            System.out.println("Timeout Time: " + timeout_time);
 
             server_port = packet.getPort();
             System.out.println("SendWelcomePacket() - Server Port: " + server_port);
@@ -375,17 +388,41 @@ public class UI extends javax.swing.JFrame
         }
 
         DatagramSocket ds = null;
+        ReplyCode code = null;
         try
         {
             for(DatagramPacket p : packet.getPackets())
             {
-                System.out.println("C: Sending packet: " + new String(p.getData()));
-                if(p.getPort() != server_port)
-                    p.setPort(server_port);
-                ds = new DatagramSocket();
-                ds.send(p);
-                ds.close();
-                waitForAck();
+                code = ReplyCode.REPLY_TIMEOUT;
+                int numTries = -1;
+                long before = -1;
+                while(code == ReplyCode.REPLY_TIMEOUT && numTries < 5)
+                {
+                    ++numTries;
+                    if(p.getPort() != server_port)
+                        p.setPort(server_port);
+                    ds = new DatagramSocket();
+
+                    System.out.println("C: Port ( " + ds.getPort() + ") transmitting packet: " + new String(p.getData()));
+                    before = System.currentTimeMillis();
+                    ds.send(p);
+                    ds.close();
+
+                    code = waitForAck();
+                }
+                if(before > 0 && code == ReplyCode.REPLY_OK)
+                {
+                    long after = System.currentTimeMillis();
+                    sample_rtt = (int) (after - before);
+                    estimated_rtt = (int) (estimated_rtt * (1-0.125) + sample_rtt * (0.125));
+                    dev_rtt = (int) ((1 - 0.25) * dev_rtt + 0.25 * Math.abs(sample_rtt - estimated_rtt));
+                    timeout_time = estimated_rtt + (4 * dev_rtt);
+                    
+                    System.out.println("Estimated RTT: " + estimated_rtt);
+                    System.out.println("Sample RTT: " + sample_rtt);
+                    System.out.println("Dev RTT: " + dev_rtt);
+                    System.out.println("Timeout Time: " + timeout_time);
+                }
             }
             ds = new DatagramSocket();
             ds.send(Packet.buildEmptyClientPacket(Packet.PacketType.FIN, server_port));
@@ -398,9 +435,12 @@ public class UI extends javax.swing.JFrame
             
             System.out.println("UDPSend(): " + ex);
 
-            return false;
+            code = ReplyCode.REPLY_ERROR;
         }
 
+        if(code == ReplyCode.REPLY_ERROR || code == ReplyCode.REPLY_TIMEOUT)
+            return false;
+        
         return true;
     }
 
@@ -456,21 +496,42 @@ private void QueryForContentActionPerformed(java.awt.event.ActionEvent evt) {//G
     DatagramSocket ds = null;
     try
     {
-        System.out.println("TRYYYYYYYYYYYYY");
-        ds = new DatagramSocket(listen_port);
-        byte buffer[] = new byte[128];
+        String type = "";
+        ArrayList<DatagramPacket> packets = new ArrayList<DatagramPacket>();
 
-        System.out.println("CLIENT: Waiting for response from SERVER");
-        DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-        ds.setSoTimeout(5000);
-        ds.receive(packet);
-        ds.close();
+        do
+        {
+            ds = new DatagramSocket(listen_port);
+
+            byte buffer[] = new byte[128];
+            DatagramPacket p = new DatagramPacket(buffer, buffer.length);
+            System.out.println("queryForContent: Waiting for packet");
+            ds.receive(p);
+            ds.close();
+
+            ds = new DatagramSocket();
+            ds.send(Packet.buildEmptyClientPacket(Packet.PacketType.ACK, server_port));
+            ds.close();
+
+            String data = new String(p.getData());
+            type = data.split(" ")[2];
+            type = type.replaceAll("\n", "");
+            type = type.replaceAll("\r", "");
+            System.out.println("C: Received Packet:\n" + data);
+            System.out.println("Type: '" + type + "'");
+            if(!type.equalsIgnoreCase(Packet.PacketType.FIN.toString()))
+                packets.add(p);
+            
+        }while(!type.equalsIgnoreCase(Packet.PacketType.FIN.toString()));
+
+        DatagramPacket packet = Packet.assemblePackets(packets);
 
         System.out.println("CLIENT: RECEIVED PACKET: " + new String(packet.getData()));
         directory.clear();
         String header[] = new String(packet.getData()).split(Packet.CRLF);
         for(int i = 1; i < header.length-2; ++i)
         {
+            System.out.println("File " + i + " : " + header[i]);
             String splat[] = header[i].split(";");
             String file = splat[0];
             String size = splat[1];
@@ -482,6 +543,43 @@ private void QueryForContentActionPerformed(java.awt.event.ActionEvent evt) {//G
         }
 
         updateDirectory();
+
+
+//        while(!(type.equalsIgnoreCase(Packet.PacketType.FIN.toString())))
+//        {
+//            ds = new DatagramSocket(listen_port);
+//            byte buffer[] = new byte[128];
+//
+//            System.out.println("CLIENT: Waiting for response from SERVER on port: " + listen_port);
+//            DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+//            ds.setSoTimeout(3937);
+//            ds.receive(packet);
+//            ds.close();
+//
+//            String str = new String(packet.getData());
+//            type = str.split(" ")[2];
+//
+//            type = type.replaceAll("\n", "");
+//
+//
+//
+//
+//            System.out.println("TYPE : '" + type + "'");
+//            if(!type.equalsIgnoreCase(Packet.PacketType.FIN.toString()))
+//            {
+//                System.out.println("In IF STATEMENT");
+//                packets.add(packet);
+//
+//                DatagramPacket ack = Packet.buildEmptyClientPacket(Packet.PacketType.ACK, server_port);
+//                ds = new DatagramSocket();
+//                ds.send(ack);
+//                ds.close();
+//            }
+//            else
+//                System.out.println("FIN RECEIVED");
+//
+//            System.out.println("C: Received packet: " + str);
+//        }
     }
     catch(SocketTimeoutException ex)
     {
@@ -544,9 +642,21 @@ private void RateContentActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIR
             }
         });
     }
-    
+
+    private enum ReplyCode
+    {
+        REPLY_OK,
+        REPLY_TIMEOUT,
+        REPLY_ERROR
+    };
+
     private int listen_port = 0;
     private int server_port = 0;
+    private int estimated_rtt = 100;
+    private int sample_rtt = 0;
+    private int dev_rtt = 0;
+    private int timeout_time = 5000;
+    
     private JFileChooser fileChooser;
     private ArrayList<DirectoryListEntry> directory;
 

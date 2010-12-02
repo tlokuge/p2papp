@@ -78,8 +78,11 @@ class DirectoryServer extends JFrame
                     DatagramSocket socket = null;
                     try
                     {
+                        if( socket != null)
+                                socket.close();
                         byte buffer[] = new byte[128];
                         socket = new DatagramSocket(listen_port);
+                        System.out.println(listen_port);
                         packet = new DatagramPacket(buffer, buffer.length);
                         System.out.println("ServerThread: Waiting for packet");
                         socket.receive(packet);
@@ -91,6 +94,7 @@ class DirectoryServer extends JFrame
                             socket.close();
                         
                         System.out.println("HandlePacket() loop: " + ex);
+                        ex.printStackTrace();
                     }
                 }
                 
@@ -102,7 +106,7 @@ class DirectoryServer extends JFrame
                     sendWelcomeReply();
                 else if(type.equalsIgnoreCase(Packet.PacketType.FIN.toString()))
                 {
-                    assemblePackets();
+                    packet = Packet.assemblePackets(packets);
                     parsePacket();
                 }
                 else
@@ -122,8 +126,7 @@ class DirectoryServer extends JFrame
             try
             {
                 socket = new DatagramSocket(listen_port);
-                DatagramPacket p = Packet.buildServerPacket(Packet.PacketType.WELCOME, STATUS_OK, null, "", packet.getAddress(), packet.getPort());
-                socket.send(p);
+                socket.send(Packet.buildEmptyServerPacket(Packet.PacketType.WELCOME, STATUS_OK, packet.getAddress(), packet.getPort()));
                 socket.close();
 
                 client_port = packet.getPort();
@@ -136,71 +139,6 @@ class DirectoryServer extends JFrame
 
                 System.out.println("sendWelcomeReply(): " + ex);
             }
-        }
-
-        class PacketSorter implements Comparator
-        {
-            // a negative integer, zero, or a positive integer as the first argument is less than, equal to, or greater than the second.
-            public int compare(Object o1, Object o2)
-            {
-                if(!(o1 instanceof DatagramPacket) || !(o2 instanceof DatagramPacket))
-                    return -1;
-
-                int seq1 = Integer.parseInt(new String(((DatagramPacket)o1).getData()).split(" ")[0]);
-                int seq2 = Integer.parseInt(new String(((DatagramPacket)o2).getData()).split(" ")[0]);
-
-                if(seq1 > seq2)
-                    return 1;
-                else if(seq1 == seq2)
-                    return 0;
-
-                return -1;
-            }
-
-        }
-        
-        public boolean isLarger(DatagramPacket one, DatagramPacket two)
-        {
-            int seq1 = Integer.parseInt(new String(one.getData()).split(" ")[0]);
-            int seq2 = Integer.parseInt(new String(two.getData()).split(" ")[0]);
-
-            if(seq1 > seq2)
-                return true;
-
-            return false;
-        }
-
-        public void assemblePackets()
-        {
-            String message = "";
-
-            System.out.println("Before sort:");
-            for(DatagramPacket p : packets)
-                System.out.println(Integer.parseInt(new String(p.getData()).split(" ")[0]));
-
-            Collections.sort(packets, new PacketSorter());
-
-            System.out.println("After sort:");
-            for(DatagramPacket p : packets)
-                System.out.println(Integer.parseInt(new String(p.getData()).split(" ")[0]));
-
-            for(DatagramPacket p : packets)
-            {
-                String data = new String(p.getData());
-                String splat[] = data.split(Packet.CRLF);
-                for(int i = 1; i < splat.length; ++i)
-                    message += splat[i];
-            }
-
-            message = message.replaceAll("#%", Packet.CRLF);
-
-            String requestLine = new String(packets.get(0).getData()).split(Packet.CRLF)[0] + Packet.CRLF;
-            message = requestLine + message;
-            byte buffer[] = message.getBytes();
-
-            packet = new DatagramPacket(buffer, buffer.length);
-
-            packets.clear();
         }
 
         public void updateFileListing(DatagramPacket packet)
@@ -255,9 +193,8 @@ class DirectoryServer extends JFrame
             for(int i = 0; i < header.length; ++i)
                 header[i] = results.get(i).convertToPacketData();
 
-            DatagramPacket response = Packet.buildServerPacket(Packet.PacketType.QUERY_FOR_CONTENT,
-                    STATUS_OK, header, " ", client_inet, client_port);
-
+            Packet response = new Packet();
+            response.buildServerPacket(Packet.PacketType.QUERY_FOR_CONTENT, STATUS_OK, header, "", client_inet, client_port);
             sendPacket(response);
         }
 
@@ -326,8 +263,8 @@ class DirectoryServer extends JFrame
             DatagramSocket socket = null;
             try
             {
-                String header[] = {new String(rcvPacket.getData()).split(" ")[0]};
-                DatagramPacket ack = Packet.buildServerPacket(Packet.PacketType.ACK, STATUS_OK, header, "", client_inet, client_port);
+                String header = new String(rcvPacket.getData()).split(" ")[0];
+                DatagramPacket ack = Packet.buildEmptyServerPacket(Packet.PacketType.ACK, header, client_inet, client_port);
                 socket = new DatagramSocket();
                 socket.send(ack);
                 socket.close();
@@ -342,22 +279,57 @@ class DirectoryServer extends JFrame
             }
         }
 
-        public void sendPacket(DatagramPacket packet)
+        public void waitForAck()
         {
             DatagramSocket ds = null;
             try
             {
-                if(listen_port > 0)
+                ds = new DatagramSocket(listen_port);
+                byte buffer[] = new byte[128];
+
+                DatagramPacket p = new DatagramPacket(buffer, buffer.length);
+                ds.setSoTimeout(5000);
+                ds.receive(p);
+                ds.close();
+
+                String str = new String(p.getData());
+                System.out.println("S: Received packet: " + str);
+            }
+            catch(SocketTimeoutException ex)
+            {
+                if(ds != null)
+                    ds.close();
+                System.out.println("S: ACK timed out");
+            }
+            catch(Exception ex)
+            {
+                if(ds != null)
+                    ds.close();
+
+                System.out.println("S: WaitForAck(): " + ex);
+            }
+        }
+
+        public void sendPacket(Packet sendPacket)
+        {
+            DatagramSocket ds = null;
+            try
+            {
+                for(DatagramPacket p : sendPacket.getPackets())
                 {
-                    System.out.println("S: Sending packet via " + listen_port);
-                    ds = new DatagramSocket(listen_port);
-                }
-                else
                     ds = new DatagramSocket();
 
-                System.out.println("S: Sending packet to port " + packet.getPort());
-                ds.send(packet);
+                    System.out.println("S: Port " + p.getPort() + " transmitting packet:\n"+ new String(p.getData()));
+                    ds.send(p);
+                    ds.close();
+
+                    waitForAck();
+                }
+
+                ds = new DatagramSocket();
+                ds.send(Packet.buildEmptyServerPacket(Packet.PacketType.FIN, STATUS_OK, client_inet, client_port));
                 ds.close();
+
             }
             catch(Exception ex)
             {
