@@ -198,19 +198,21 @@ class DirectoryServer extends JFrame
             message = requestLine + message;
             byte buffer[] = message.getBytes();
 
-            packet = new DatagramPacket(buffer, buffer.length);            
+            packet = new DatagramPacket(buffer, buffer.length);
+
+            packets.clear();
         }
 
         public void updateFileListing(DatagramPacket packet)
         {
             String splat[] = new String(packet.getData()).split(Packet.CRLF);
-            String[] files = new String[splat.length-3];
+            String[] files = new String[splat.length];
             for(int i = 0; i < files.length; ++i)
-                files[i] = splat[i+1];
+                files[i] = splat[i];
 
             String address = client_inet.getHostAddress();
 
-            for(int i = 0; i < files.length; ++i)
+            for(int i = 1; i < files.length; ++i)
             {
                 String[] file_split = files[i].replaceAll("&%", " ").split(";"); // Convert all our &% back to spaces
                 System.out.println(file_split[0] + " - " + file_split[1]);
@@ -232,15 +234,19 @@ class DirectoryServer extends JFrame
         public void queryListing(DatagramPacket packet)
         {
             System.out.println("QUERY");
-            InetAddress inet = packet.getAddress();
-            int port = packet.getPort();
             String searchQuery = new String(packet.getData()).split(Packet.CRLF)[1].toLowerCase();
 
+            String query = "";
+            for(int i = 0; i < searchQuery.length(); ++i)
+                if(Character.isLetter(searchQuery.charAt(i)))
+                    query += searchQuery.charAt(i);
+            
             ArrayList<DirectoryListEntry> results = new ArrayList<DirectoryListEntry>();
             for(DirectoryListEntry entry : directory)
             {
-                if(entry.getFile().toLowerCase().contains(searchQuery))
+                if(entry.getFile().toLowerCase().contains(query))
                 {
+                    System.out.println("Found entry");
                     results.add(entry);
                 }
             }
@@ -250,7 +256,7 @@ class DirectoryServer extends JFrame
                 header[i] = results.get(i).convertToPacketData();
 
             DatagramPacket response = Packet.buildServerPacket(Packet.PacketType.QUERY_FOR_CONTENT,
-                    STATUS_OK, header, " ", inet, port);
+                    STATUS_OK, header, " ", client_inet, client_port);
 
             sendPacket(response);
         }
@@ -270,19 +276,20 @@ class DirectoryServer extends JFrame
                     break;
                 }
 
-            target.rate(Integer.parseInt(rate));
+            String r = "";
+            for(int i = 0; i < rate.length(); ++i)
+                if(Character.isDigit(rate.charAt(i)))
+                    r += rate.charAt(i);
+            target.rate(Integer.parseInt(r));
             buildListTextArea();
         }
 
         public void registerClientExit(DatagramPacket packet)
         {
-            InetAddress inet = packet.getAddress();
-            int port = packet.getPort();
-
             for(Iterator<DirectoryListEntry> itr = directory.iterator(); itr.hasNext(); )
             {
                 DirectoryListEntry entry = itr.next();
-                if(entry.getAddress().equals(inet.getHostAddress()) && entry.getPort() == port)
+                if(entry.getAddress().equals(client_inet.getHostAddress()) && entry.getPort() == client_port)
                     itr.remove();
             }
 
@@ -341,10 +348,14 @@ class DirectoryServer extends JFrame
             try
             {
                 if(listen_port > 0)
+                {
+                    System.out.println("S: Sending packet via " + listen_port);
                     ds = new DatagramSocket(listen_port);
+                }
                 else
                     ds = new DatagramSocket();
-                
+
+                System.out.println("S: Sending packet to port " + packet.getPort());
                 ds.send(packet);
                 ds.close();
             }
@@ -353,7 +364,7 @@ class DirectoryServer extends JFrame
                 if(ds != null)
                     ds.close();
 
-                System.out.println("DIE");
+                System.out.println("sendPacket(): " + ex);
             }
         }
     }
@@ -394,8 +405,12 @@ class DirectoryServer extends JFrame
         {
             if(ds != null)
                 ds.close();
-            System.err.println(ex);
+            System.out.println("packetWaitLoop(): " + ex);
         }
+
+
+        if(ds != null)
+            ds.close();
     }
     
     public static void main(String ar[])

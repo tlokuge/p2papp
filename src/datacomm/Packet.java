@@ -50,6 +50,9 @@ public class Packet
                     headerLines += "#%" + header[i] + CRLF;
             }
 
+            if(entity == null)
+                entity = "";
+
             headerLines += CRLF;
             String message = headerLines + entity;
             System.out.println("Message Built...");
@@ -103,7 +106,7 @@ public class Packet
         }
         catch(Exception ex)
         {
-            System.err.println("buildPacket: " + ex);
+            System.out.println("buildPacket: " + ex);
         }
     }
 
@@ -157,7 +160,7 @@ public class Packet
         }
         catch(Exception ex)
         {
-            System.err.println(ex);
+            System.out.println("buildServerPacket(): " + ex);
         }
         return null;
     }

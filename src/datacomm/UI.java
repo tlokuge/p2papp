@@ -47,7 +47,9 @@ public class UI extends javax.swing.JFrame
         {
             public void actionPerformed(ActionEvent event)
             {
-
+                if(directoryList.getSelectedIndex() == -1)
+                    return;
+                
                 String file_name = directoryList.getSelectedValue().toString();
                 int rating = Integer.parseInt(ratingField.getText());
                 if(rating < 0 || rating > 100)
@@ -377,6 +379,7 @@ public class UI extends javax.swing.JFrame
         {
             for(DatagramPacket p : packet.getPackets())
             {
+                System.out.println("C: Sending packet: " + new String(p.getData()));
                 if(p.getPort() != server_port)
                     p.setPort(server_port);
                 ds = new DatagramSocket();
