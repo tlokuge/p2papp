@@ -13,19 +13,26 @@ import javax.swing.filechooser.FileFilter;
  *
  * @author  l3whalen
  */
-public class Client extends javax.swing.JFrame
+public class Client extends JFrame
 {
 
     /** Creates new form Client */
     public Client()
     {
+        client_name = null;
+        while(client_name == null)
+            client_name = JOptionPane.showInputDialog("Enter a name for this client:");
+
         listen_port = 16000 + new Random().nextInt(1000);
         directory = new ArrayList();
 
-        tcp = new ClientP2PTCPControl(listen_port, "", -1);
-
         initComponents();
         initRateFrame();
+
+        tcp = new ClientP2PTCPControl(client_name, listen_port, "", -1, console);
+
+        this.setTitle(client_name);
+        setVisible(true);
     }
 
     private void initRateFrame()
@@ -111,6 +118,9 @@ public class Client extends javax.swing.JFrame
         jLabel6 = new javax.swing.JLabel();
         jLabel7 = new javax.swing.JLabel();
         Exit = new javax.swing.JButton();
+        jScrollPane3 = new javax.swing.JScrollPane();
+        console = new javax.swing.JTextArea();
+        jLabel8 = new javax.swing.JLabel();
 
         javax.swing.GroupLayout jFrame1Layout = new javax.swing.GroupLayout(jFrame1.getContentPane());
         jFrame1.getContentPane().setLayout(jFrame1Layout);
@@ -145,7 +155,7 @@ public class Client extends javax.swing.JFrame
             .addGap(0, 300, Short.MAX_VALUE)
         );
 
-        setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         addWindowListener(new java.awt.event.WindowAdapter() {
             public void windowClosing(java.awt.event.WindowEvent evt) {
                 formWindowClosing(evt);
@@ -205,14 +215,25 @@ public class Client extends javax.swing.JFrame
             }
         });
 
+        console.setColumns(20);
+        console.setEditable(false);
+        console.setRows(5);
+        console.setName("Console"); // NOI18N
+        jScrollPane3.setViewportView(console);
+
+        jLabel8.setText("Console");
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addGroup(javax.swing.GroupLayout.Alignment.LEADING, layout.createSequentialGroup()
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(layout.createSequentialGroup()
+                        .addComponent(jScrollPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 653, Short.MAX_VALUE)
+                        .addContainerGap())
+                    .addGroup(layout.createSequentialGroup()
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                             .addGroup(layout.createSequentialGroup()
                                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
@@ -227,23 +248,33 @@ public class Client extends javax.swing.JFrame
                             .addComponent(jLabel3, javax.swing.GroupLayout.DEFAULT_SIZE, 209, Short.MAX_VALUE)
                             .addComponent(jLabel5))
                         .addGap(98, 98, 98))
-                    .addComponent(downloadButton, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, 211, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addGroup(javax.swing.GroupLayout.Alignment.LEADING, layout.createSequentialGroup()
+                    .addGroup(layout.createSequentialGroup()
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(jLabel1, javax.swing.GroupLayout.PREFERRED_SIZE, 88, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 577, Short.MAX_VALUE))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 52, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(jLabel6))
+                        .addGap(28, 28, 28))
+                    .addGroup(layout.createSequentialGroup()
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addGroup(layout.createSequentialGroup()
-                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                    .addComponent(jLabel7)
-                                    .addComponent(jLabel1, javax.swing.GroupLayout.PREFERRED_SIZE, 88, javax.swing.GroupLayout.PREFERRED_SIZE))
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 308, Short.MAX_VALUE)
-                                .addComponent(RateContent, javax.swing.GroupLayout.PREFERRED_SIZE, 211, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addGap(10, 10, 10)
+                                .addComponent(jLabel8)
+                                .addGap(554, 554, 554))
                             .addGroup(layout.createSequentialGroup()
-                                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 549, Short.MAX_VALUE)
+                                .addGap(172, 172, 172)
+                                .addComponent(downloadButton, javax.swing.GroupLayout.PREFERRED_SIZE, 154, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                    .addComponent(jLabel6)
-                                    .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 52, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                            .addComponent(Exit, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, 117, javax.swing.GroupLayout.PREFERRED_SIZE))
-                        .addGap(56, 56, 56))))
+                                .addComponent(RateContent, javax.swing.GroupLayout.PREFERRED_SIZE, 142, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(Exit)
+                                .addGap(71, 71, 71)))
+                        .addContainerGap(61, Short.MAX_VALUE))
+                    .addGroup(layout.createSequentialGroup()
+                        .addComponent(jLabel7)
+                        .addContainerGap(588, Short.MAX_VALUE))))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -252,21 +283,18 @@ public class Client extends javax.swing.JFrame
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(layout.createSequentialGroup()
                         .addComponent(jLabel2, javax.swing.GroupLayout.PREFERRED_SIZE, 28, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 11, Short.MAX_VALUE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(InformAndUpdate)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                             .addComponent(searchField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                             .addComponent(QueryForContent))
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addGroup(layout.createSequentialGroup()
-                                .addGap(30, 30, 30)
-                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                                    .addComponent(jLabel1, javax.swing.GroupLayout.PREFERRED_SIZE, 20, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                    .addComponent(jLabel6)))
-                            .addGroup(layout.createSequentialGroup()
-                                .addGap(18, 18, 18)
-                                .addComponent(jLabel7))))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addComponent(jLabel7)
+                        .addGap(5, 5, 5)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                            .addComponent(jLabel6)
+                            .addComponent(jLabel1, javax.swing.GroupLayout.PREFERRED_SIZE, 20, javax.swing.GroupLayout.PREFERRED_SIZE)))
                     .addGroup(layout.createSequentialGroup()
                         .addComponent(jLabel3, javax.swing.GroupLayout.PREFERRED_SIZE, 16, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -275,15 +303,18 @@ public class Client extends javax.swing.JFrame
                         .addComponent(jLabel5)))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 212, Short.MAX_VALUE)
-                    .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(jScrollPane1)
+                    .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(downloadButton, javax.swing.GroupLayout.PREFERRED_SIZE, 57, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(RateContent, javax.swing.GroupLayout.PREFERRED_SIZE, 57, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(Exit, javax.swing.GroupLayout.PREFERRED_SIZE, 42, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(18, 18, 18))
+                    .addComponent(downloadButton, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(RateContent)
+                    .addComponent(Exit))
+                .addGap(3, 3, 3)
+                .addComponent(jLabel8)
+                .addGap(1, 1, 1)
+                .addComponent(jScrollPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 169, Short.MAX_VALUE)
+                .addContainerGap())
         );
 
         pack();
@@ -305,7 +336,7 @@ public class Client extends javax.swing.JFrame
 
     private ReplyCode waitForAck()
     {
-        Globals.debug("C: Waiting for ACK on port: " + listen_port);
+        debug("C: Waiting for ACK on port: " + listen_port);
         DatagramSocket ds = null;
         try
         {
@@ -318,7 +349,7 @@ public class Client extends javax.swing.JFrame
             ds.receive(packet);
             ds.close();
             String str = new String(packet.getData());
-            Globals.debug("C: Received ACK:\n" + str);
+            debug("C: Received ACK:\n" + str);
 
             return ReplyCode.REPLY_OK;
         }
@@ -326,7 +357,7 @@ public class Client extends javax.swing.JFrame
         {
             if(ds != null)
                 ds.close();
-            Globals.debug("C: TIMED OUT before ACK received");
+            debug("C: TIMED OUT before ACK received");
             return ReplyCode.REPLY_TIMEOUT;
         }
         catch(Exception ex)
@@ -360,20 +391,20 @@ public class Client extends javax.swing.JFrame
             estimated_rtt = (int) (estimated_rtt * (1-0.125) + sample_rtt * (0.125));
             dev_rtt = (int) (0.25 * Math.abs(sample_rtt - estimated_rtt));
             timeout_time = estimated_rtt + (4 * dev_rtt);
-            Globals.debug("C: Estimated RTT: " + estimated_rtt);
-            Globals.debug("C: Sample RTT: " + sample_rtt);
-            Globals.debug("C: Dev RTT: " + dev_rtt);
-            Globals.debug("C: Timeout Time: " + timeout_time);
+            debug("C: Estimated RTT: " + estimated_rtt);
+            debug("C: Sample RTT: " + sample_rtt);
+            debug("C: Dev RTT: " + dev_rtt);
+            debug("C: Timeout Time: " + timeout_time);
 
             server_port = packet.getPort();
-            Globals.debug("C: SendWelcomePacket() - Server Port: " + server_port);
+            debug("C: SendWelcomePacket() - Server Port: " + server_port);
         }
         catch(SocketTimeoutException ex)
         {
             if(ds != null)
                 ds.close();
 
-            Globals.debug("sendWelcomePacket(): Welcome Reply timed out!");
+            debug("sendWelcomePacket(): Welcome Reply timed out!");
         }
         catch(Exception ex)
         {
@@ -415,7 +446,7 @@ public class Client extends javax.swing.JFrame
                         p.setPort(server_port);
                     ds = new DatagramSocket();
 
-                    Globals.debug("C: Port ( " + ds.getPort() + ") transmitting packet:\n---\n" + new String(p.getData()) + "\n---");
+                    debug("C: Port ( " + ds.getPort() + ") transmitting packet:\n---\n" + new String(p.getData()) + "\n---");
                     before = System.currentTimeMillis();
                     ds.send(p);
                     ds.close();
@@ -430,10 +461,10 @@ public class Client extends javax.swing.JFrame
                     dev_rtt = (int) ((1 - 0.25) * dev_rtt + 0.25 * Math.abs(sample_rtt - estimated_rtt));
                     timeout_time = estimated_rtt + (4 * dev_rtt);
                     
-                    Globals.debug("C: Estimated RTT: " + estimated_rtt);
-                    Globals.debug("C: Sample RTT: " + sample_rtt);
-                    Globals.debug("C: Dev RTT: " + dev_rtt);
-                    Globals.debug("C: Timeout Time: " + timeout_time);
+                    debug("C: Estimated RTT: " + estimated_rtt);
+                    debug("C: Sample RTT: " + sample_rtt);
+                    debug("C: Dev RTT: " + dev_rtt);
+                    debug("C: Timeout Time: " + timeout_time);
                 }
                 if(code == ReplyCode.REPLY_TIMEOUT)
                 {
@@ -467,7 +498,7 @@ public class Client extends javax.swing.JFrame
         packet.buildPacket(Packet.PacketType.EXIT, null, "", server_port);
         UDPSend(packet);
 
-        System.exit(0);
+        Globals.output("Push OK to exit", true);
     }
     
 private void InformAndUpdateActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_InformAndUpdateActionPerformed
@@ -532,7 +563,7 @@ private void QueryForContentActionPerformed(java.awt.event.ActionEvent evt) {//G
 
             byte buffer[] = new byte[Globals.BUF_SIZE];
             DatagramPacket p = new DatagramPacket(buffer, buffer.length);
-            Globals.debug("C: queryForContent: Waiting for packet");
+            debug("C: queryForContent: Waiting for packet");
             ds.setSoTimeout(timeout_time);
             ds.receive(p);
             ds.close();
@@ -547,7 +578,7 @@ private void QueryForContentActionPerformed(java.awt.event.ActionEvent evt) {//G
             type = data.split(" ")[2];
             type = type.replaceAll("\n", "");
             type = type.replaceAll("\r", "");
-            Globals.debug("C: Received Packet:\n---\n" + data + "\n----");
+            debug("C: Received Packet:\n---\n" + data + "\n----");
             if(!type.equalsIgnoreCase(Packet.PacketType.FIN.toString()))
             {
                 packets.add(p);
@@ -561,7 +592,7 @@ private void QueryForContentActionPerformed(java.awt.event.ActionEvent evt) {//G
 
         DatagramPacket packet = Packet.assemblePackets(packets);
 
-        Globals.debug("C: Received Packet:\n---\n" + new String(packet.getData()) + "\n---");
+        debug("C: Received Packet:\n---\n" + new String(packet.getData()) + "\n---");
         directory.clear();
         String header[] = new String(packet.getData()).split(Globals.CRLF);
         for(int i = 1; i < header.length; ++i)
@@ -591,7 +622,7 @@ private void QueryForContentActionPerformed(java.awt.event.ActionEvent evt) {//G
             return;
         }
         
-        Globals.debug("C: ACK for query timed out");
+        debug("C: ACK for query timed out");
     }
     catch(Exception ex)
     {
@@ -606,11 +637,15 @@ private void QueryForContentActionPerformed(java.awt.event.ActionEvent evt) {//G
 private void ExitActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_ExitActionPerformed
 {//GEN-HEADEREND:event_ExitActionPerformed
     sendExitPacket();
+
+    this.dispose();
 }//GEN-LAST:event_ExitActionPerformed
 
 private void formWindowClosing(java.awt.event.WindowEvent evt)//GEN-FIRST:event_formWindowClosing
 {//GEN-HEADEREND:event_formWindowClosing
     sendExitPacket();
+
+    this.dispose();
 }//GEN-LAST:event_formWindowClosing
 
 private void RateContentActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_RateContentActionPerformed
@@ -647,6 +682,12 @@ private void downloadButtonActionPerformed(java.awt.event.ActionEvent evt)//GEN-
     }
 }//GEN-LAST:event_downloadButtonActionPerformed
 
+public void debug(Object object)
+{
+    Globals.debug(object);
+
+    console.append(object + "\n");
+}
 
     class JPEGExtensionFilter extends FileFilter
     {
@@ -665,23 +706,14 @@ private void downloadButtonActionPerformed(java.awt.event.ActionEvent evt)//GEN-
         }
     }
 
-    public static void main(String args[])
-    {
-        java.awt.EventQueue.invokeLater(new Runnable()
-        {
-            public void run()
-            {
-                new Client().setVisible(true);
-            }
-        });
-    }
-
+    private String client_name;
+    
     private int listen_port = 0;
     private int server_port = 0;
     private int estimated_rtt = 100;
     private int sample_rtt = 0;
     private int dev_rtt = 0;
-    private int timeout_time = 5000;
+    private int timeout_time = 2000;
     
     private JFileChooser fileChooser;
     private ArrayList<DirectoryListEntry> directory;
@@ -697,6 +729,7 @@ private void downloadButtonActionPerformed(java.awt.event.ActionEvent evt)//GEN-
     private javax.swing.JButton InformAndUpdate;
     private javax.swing.JButton QueryForContent;
     private javax.swing.JButton RateContent;
+    private javax.swing.JTextArea console;
     private javax.swing.JList directoryList;
     private javax.swing.JButton downloadButton;
     private javax.swing.JDialog jDialog1;
@@ -709,8 +742,10 @@ private void downloadButtonActionPerformed(java.awt.event.ActionEvent evt)//GEN-
     private javax.swing.JLabel jLabel5;
     private javax.swing.JLabel jLabel6;
     private javax.swing.JLabel jLabel7;
+    private javax.swing.JLabel jLabel8;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;
+    private javax.swing.JScrollPane jScrollPane3;
     private javax.swing.JList ratingList;
     private javax.swing.JTextField searchField;
     // End of variables declaration//GEN-END:variables

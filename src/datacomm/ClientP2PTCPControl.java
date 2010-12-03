@@ -2,21 +2,27 @@ package datacomm;
 
 import java.io.*;
 import java.net.*;
+import javax.swing.JTextArea;
 /**
  *
  * @author Thavisha
  */
 public class ClientP2PTCPControl implements Runnable
 {
+    private String client_name;
+    
     private int listen_port;
 
     private String send_hostname;
     private int send_port;
 
     Thread thread;
+
+    JTextArea console;
     
-    public ClientP2PTCPControl(int listen, String send_host, int send)
+    public ClientP2PTCPControl(String name, int listen, String send_host, int send, JTextArea console)
     {
+        client_name = name;
         thread = new Thread(this);
         thread.start();
 
@@ -24,6 +30,8 @@ public class ClientP2PTCPControl implements Runnable
 
         send_hostname = send_host;
         send_port = send;
+
+        this.console = console;
     }
 
     public void run()
@@ -44,13 +52,13 @@ public class ClientP2PTCPControl implements Runnable
 
             String packet = new String(buffer);
             String split[] = packet.split(";");
-            String type = packet.split(";")[0];
+            String type = split[0];
             if(type.equalsIgnoreCase("GET"))
             {
                 String filename = split[1];
                 String host = split[2];
                 String port = Globals.normalize(split[3]);
-                setTransmitInfo(split[2], Integer.parseInt(port));
+                setTransmitInfo(host, Integer.parseInt(port));
 
                 File f = new File(filename);
                 if(f == null || f.exists())
@@ -58,7 +66,12 @@ public class ClientP2PTCPControl implements Runnable
             }
             else if(type.equalsIgnoreCase("TRANSMIT"))
             {
-                BufferedOutputStream bs = new BufferedOutputStream(new FileOutputStream(new File("temp.jpeg")));
+                File directory = new File(client_name);
+                if(directory == null || !directory.exists())
+                    directory.mkdir();
+                
+                File saved = new File(directory.getCanonicalPath() + File.separator + split[1]);
+                BufferedOutputStream bs = new BufferedOutputStream(new FileOutputStream(saved));
                 while(is.read(buffer) != -1)
                     bs.write(buffer);
 
@@ -69,7 +82,7 @@ public class ClientP2PTCPControl implements Runnable
         }
         catch(Exception ex)
         {
-            Globals.debug("Listen(): " + ex);
+            debug("Listen(): " + ex);
         }
     }
 
@@ -100,17 +113,19 @@ public class ClientP2PTCPControl implements Runnable
             Socket socket = new Socket(send_hostname, send_port);
 
             OutputStream os = socket.getOutputStream();
-            int length = (int)f.length();
             BufferedInputStream bs = new BufferedInputStream(new FileInputStream(f));
             byte[] buffer = new byte[128];
             int bytesRead = 0;
-            os.write("TRANSMIT;\n".getBytes());
+            String header = "TRANSMIT;" + f.getName() + ";\n";
+            os.write(header.getBytes());
             while((bytesRead = bs.read(buffer)) != -1)
                 os.write(buffer);
             
             os.flush();
             os.close();
             bs.close();
+
+            Globals.output("File transferred!", true);
         }
         catch(Exception ex)
         {
@@ -122,5 +137,11 @@ public class ClientP2PTCPControl implements Runnable
     {
         send_hostname = hostname;
         send_port = port;
+    }
+
+    public void debug(Object obj)
+    {
+        Globals.debug(obj);
+        console.append(obj + "\n");
     }
 }
