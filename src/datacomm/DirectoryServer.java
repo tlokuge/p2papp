@@ -94,13 +94,13 @@ class DirectoryServer extends JFrame
                         if(socket != null)
                             socket.close();
                         
-                        Globals.debug("HandlePacket() loop: " + ex);
+                        Globals.exception(ex, "S:HandlePacket() loop");
                         ex.printStackTrace();
                     }
                 }
                 
                 String str = new String(packet.getData());
-                Globals.debug("SERVER - RECEIVED PACKET:\n" + str);
+                Globals.debug("S: Packet Received:\n---\n" + str + "\n---");
 
                 String splat[] = str.split(" ");
                 String type = splat[1];
@@ -119,7 +119,7 @@ class DirectoryServer extends JFrame
                     if(!received_segNums.contains(Integer.parseInt(segNum)))
                         packets.add(packet);
                     else
-                        Globals.debug("Received duplicate packet: " + segNum);
+                        Globals.debug("S: Received duplicate packet: " + segNum);
 
                     sendAck(packet);
                 }
@@ -128,9 +128,7 @@ class DirectoryServer extends JFrame
 
         public void sendWelcomeReply()
         {
-            Globals.debug("sendWelcomeReply()");
             listen_port = 16000 + new Random().nextInt(1000);
-            Globals.debug("listen_port = " + listen_port);
             DatagramSocket socket = null;
             try
             {
@@ -146,7 +144,7 @@ class DirectoryServer extends JFrame
                 if(socket != null)
                     socket.close();
 
-                Globals.debug("sendWelcomeReply(): " + ex);
+                Globals.exception(ex, "S:sendWelcomeReply()");
             }
         }
 
@@ -155,26 +153,21 @@ class DirectoryServer extends JFrame
             if(packet == null)
                 Globals.error("updateFileListing(): Received NULL pointer. Aborting!", true);
             
-            String splat[] = new String(packet.getData()).split(Packet.CRLF);
+            String splat[] = new String(packet.getData()).split(Globals.CRLF);
             String[] files = new String[splat.length];
             for(int i = 0; i < files.length; ++i)
                 files[i] = splat[i];
 
             String address = client_inet.getHostAddress();
 
-            Globals.debug("Number of files to be split: " + files.length);
             for(int i = 1; i < files.length; ++i)
             {
-                Globals.debug("Before split: " + files[i]);
                 String[] file_split = files[i].replaceAll("&%", " ").split(";"); // Convert all our &% back to spaces
                 if(file_split.length < 2)
                 {
-                    Globals.debug("S: Attempt to add invalid files to server directory. Aborted.");
+                    Globals.error("S: Attempt to add invalid files to server directory. Aborted.");
                     continue;
                 }
-                Globals.debug("Size of split: " + file_split.length);
-                Globals.debug("File Name:" + file_split[0]);
-                Globals.debug("File size:" + file_split[1]);
                 Globals.debug(file_split[0] + " - " + file_split[1]);
                 boolean skip = false;
                 for(DirectoryListEntry entry : directory)
@@ -193,8 +186,7 @@ class DirectoryServer extends JFrame
 
         public void queryListing(DatagramPacket packet)
         {
-            Globals.debug("QUERY");
-            String searchQuery = new String(packet.getData()).split(Packet.CRLF)[1].toLowerCase();
+            String searchQuery = new String(packet.getData()).split(Globals.CRLF)[1].toLowerCase();
 
             String query = "";
             for(int i = 0; i < searchQuery.length(); ++i)
@@ -205,10 +197,7 @@ class DirectoryServer extends JFrame
             for(DirectoryListEntry entry : directory)
             {
                 if(entry.getFile().toLowerCase().contains(query))
-                {
-                    Globals.debug("Found entry");
                     results.add(entry);
-                }
             }
 
             String[] header = new String[results.size()];
@@ -223,7 +212,7 @@ class DirectoryServer extends JFrame
         public void rateContent(DatagramPacket packet)
         {
             String data = new String(packet.getData());
-            String header = data.split(Packet.CRLF)[1];
+            String header = data.split(Globals.CRLF)[1];
             String filename = header.split(";")[0];
             String rate = header.split(";")[1];
 
@@ -259,11 +248,11 @@ class DirectoryServer extends JFrame
         public void parsePacket()
         {
             String data = new String(packet.getData());
-            Globals.debug("data: " + data);
+            Globals.debug("S: Parsing Packet. Contains data:\n---\n" + data + "\n----");
             String packetType = data.split(" ")[1];
             Packet.PacketType type = Packet.PacketType.valueOf(packetType);
 
-            Globals.debug("SERVER: Parsing " + type + " PACKET");
+            Globals.debug("S: Parsing " + type + " packet");
             switch(type)
             {
                 case INFORM_AND_UPDATE: updateFileListing(packet);   break;
@@ -287,14 +276,14 @@ class DirectoryServer extends JFrame
                 socket = new DatagramSocket();
                 socket.send(ack);
                 socket.close();
-                Globals.debug("SERVER: ACK sent to " + client_inet.getHostAddress() + ":" + client_port);
+                Globals.debug("S: ACK sent to " + client_inet.getHostAddress() + ":" + client_port);
             }
             catch(Exception ex)
             {
                 if(socket != null)
                     socket.close();
                 
-                Globals.debug("S: SendAck(): " + ex);
+                Globals.exception(ex, "S:SendAck()");
             }
         }
 
@@ -312,7 +301,7 @@ class DirectoryServer extends JFrame
                 ds.close();
 
                 String str = new String(p.getData());
-                Globals.debug("S: Received packet: " + str);
+                Globals.debug("S: Received packet:\n---\n" + str + "\n---");
             }
             catch(SocketTimeoutException ex)
             {
@@ -325,7 +314,7 @@ class DirectoryServer extends JFrame
                 if(ds != null)
                     ds.close();
 
-                Globals.debug("S: WaitForAck(): " + ex);
+                Globals.exception(ex, "S:waitForAck()");
             }
         }
 
@@ -338,7 +327,7 @@ class DirectoryServer extends JFrame
                 {
                     ds = new DatagramSocket();
 
-                    Globals.debug("S: Port " + p.getPort() + " transmitting packet:\n"+ new String(p.getData()));
+                    Globals.debug("S: Transmitting packet:\n---\n" + new String(p.getData()) + "\n---");
                     ds.send(p);
                     ds.close();
 
@@ -346,7 +335,6 @@ class DirectoryServer extends JFrame
                 }
 
                 ds = new DatagramSocket();
-                Globals.debug("S: Sending FIN");
                 ds.send(Packet.buildEmptyServerPacket(Packet.PacketType.FIN, STATUS_OK, client_inet, client_port));
                 ds.close();
 
@@ -356,7 +344,7 @@ class DirectoryServer extends JFrame
                 if(ds != null)
                     ds.close();
 
-                Globals.debug("sendPacket(): " + ex);
+                Globals.exception(ex, "S:sendPacket()");
             }
         }
     }
@@ -373,8 +361,6 @@ class DirectoryServer extends JFrame
     {
         for(DirectoryListEntry entry : directory)
             Globals.debug(entry);
-        Globals.debug("Number of entries:" + directory.size());
-        Globals.debug("-----------------------------------");
     }
 
     public void packetWaitLoop()
@@ -397,7 +383,7 @@ class DirectoryServer extends JFrame
         {
             if(ds != null)
                 ds.close();
-            Globals.debug("packetWaitLoop(): " + ex);
+            Globals.exception(ex, "S:packetWaitLoop()");
         }
 
 
@@ -407,7 +393,7 @@ class DirectoryServer extends JFrame
     
     public static void main(String ar[])
     {
-        Globals.debug("Server initialized.");
+        Globals.debug("S: Server initialized.");
         DirectoryServer server = new DirectoryServer();
         server.packetWaitLoop();
     }

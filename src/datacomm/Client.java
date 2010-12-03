@@ -30,7 +30,7 @@ public class Client extends javax.swing.JFrame
 
     private void initRateFrame()
     {
-        rateFrame = new JFrame("FrameDemo");
+        rateFrame = new JFrame("Rate File");
         ratingField = new JTextField(3);
         rateButton = new JButton("Rate");
 
@@ -305,7 +305,7 @@ public class Client extends javax.swing.JFrame
 
     private ReplyCode waitForAck()
     {
-        Globals.debug("CLIENT: Waiting for ACK on port: " + listen_port);
+        Globals.debug("C: Waiting for ACK on port: " + listen_port);
         DatagramSocket ds = null;
         try
         {
@@ -318,7 +318,7 @@ public class Client extends javax.swing.JFrame
             ds.receive(packet);
             ds.close();
             String str = new String(packet.getData());
-            Globals.debug("CLIENT: RECEIVED PACKET: " + str);
+            Globals.debug("C: Received ACK:\n" + str);
 
             return ReplyCode.REPLY_OK;
         }
@@ -326,14 +326,14 @@ public class Client extends javax.swing.JFrame
         {
             if(ds != null)
                 ds.close();
-            Globals.debug("CLIENT: Socket Timed out before received ACK");
+            Globals.debug("C: TIMED OUT before ACK received");
             return ReplyCode.REPLY_TIMEOUT;
         }
         catch(Exception ex)
         {
             if(ds != null)
                 ds.close();
-            Globals.debug("waitForAck(): " + ex);
+            Globals.exception(ex, "C:waitForAck()");
             ex.printStackTrace();
 
             return ReplyCode.REPLY_ERROR;
@@ -360,27 +360,27 @@ public class Client extends javax.swing.JFrame
             estimated_rtt = (int) (estimated_rtt * (1-0.125) + sample_rtt * (0.125));
             dev_rtt = (int) (0.25 * Math.abs(sample_rtt - estimated_rtt));
             timeout_time = estimated_rtt + (4 * dev_rtt);
-            Globals.debug("Estimated RTT: " + estimated_rtt);
-            Globals.debug("Sample RTT: " + sample_rtt);
-            Globals.debug("Dev RTT: " + dev_rtt);
-            Globals.debug("Timeout Time: " + timeout_time);
+            Globals.debug("C: Estimated RTT: " + estimated_rtt);
+            Globals.debug("C: Sample RTT: " + sample_rtt);
+            Globals.debug("C: Dev RTT: " + dev_rtt);
+            Globals.debug("C: Timeout Time: " + timeout_time);
 
             server_port = packet.getPort();
-            Globals.debug("SendWelcomePacket() - Server Port: " + server_port);
+            Globals.debug("C: SendWelcomePacket() - Server Port: " + server_port);
         }
         catch(SocketTimeoutException ex)
         {
             if(ds != null)
                 ds.close();
 
-            Globals.debug("sendWelcomePacket(): Reply timed out!");
+            Globals.debug("sendWelcomePacket(): Welcome Reply timed out!");
         }
         catch(Exception ex)
         {
             if(ds != null)
                 ds.close();
 
-            Globals.debug("sendWelcomePacket(): " + ex);
+            Globals.exception(ex, "C:sendWelcomePacket()");
         }
     }
     
@@ -395,7 +395,7 @@ public class Client extends javax.swing.JFrame
             }
             catch(Exception ex)
             {
-                Globals.debug("UDPSend sleep ex: " + ex);
+                Globals.exception(ex, "C:UDPSend - Sleep()");
             }
         }
 
@@ -415,7 +415,7 @@ public class Client extends javax.swing.JFrame
                         p.setPort(server_port);
                     ds = new DatagramSocket();
 
-                    Globals.debug("C: Port ( " + ds.getPort() + ") transmitting packet: " + new String(p.getData()));
+                    Globals.debug("C: Port ( " + ds.getPort() + ") transmitting packet:\n---\n" + new String(p.getData()) + "\n---");
                     before = System.currentTimeMillis();
                     ds.send(p);
                     ds.close();
@@ -430,14 +430,14 @@ public class Client extends javax.swing.JFrame
                     dev_rtt = (int) ((1 - 0.25) * dev_rtt + 0.25 * Math.abs(sample_rtt - estimated_rtt));
                     timeout_time = estimated_rtt + (4 * dev_rtt);
                     
-                    Globals.debug("Estimated RTT: " + estimated_rtt);
-                    Globals.debug("Sample RTT: " + sample_rtt);
-                    Globals.debug("Dev RTT: " + dev_rtt);
-                    Globals.debug("Timeout Time: " + timeout_time);
+                    Globals.debug("C: Estimated RTT: " + estimated_rtt);
+                    Globals.debug("C: Sample RTT: " + sample_rtt);
+                    Globals.debug("C: Dev RTT: " + dev_rtt);
+                    Globals.debug("C: Timeout Time: " + timeout_time);
                 }
                 if(code == ReplyCode.REPLY_TIMEOUT)
                 {
-                    Globals.error("Client: Packet fully timed out:\n" + new String(p.getData()), true);
+                    Globals.error("C: Packet fully timed out:\n" + new String(p.getData()), true);
                     break;
                 }
             }
@@ -449,8 +449,8 @@ public class Client extends javax.swing.JFrame
         {
             if(ds != null)
                 ds.close();
-            
-            Globals.debug("UDPSend(): " + ex);
+
+            Globals.exception(ex, "C:UDPSend()");
 
             code = ReplyCode.REPLY_ERROR;
         }
@@ -476,7 +476,7 @@ private void InformAndUpdateActionPerformed(java.awt.event.ActionEvent evt) {//G
     {
         fileChooser = new JFileChooser();
         fileChooser.setMultiSelectionEnabled(true);
-        //fileChooser.setFileFilter(new JPEGExtensionFilter());
+        fileChooser.setFileFilter(new JPEGExtensionFilter());
     }
 
     try
@@ -497,7 +497,7 @@ private void InformAndUpdateActionPerformed(java.awt.event.ActionEvent evt) {//G
     }
     catch(Exception ex)
     {
-        Globals.debug("InformAndUpdate: " + ex);
+        Globals.exception(ex, "C:InformAndUpdate()");
     }
 }//GEN-LAST:event_InformAndUpdateActionPerformed
 
@@ -532,17 +532,22 @@ private void QueryForContentActionPerformed(java.awt.event.ActionEvent evt) {//G
 
             byte buffer[] = new byte[Globals.BUF_SIZE];
             DatagramPacket p = new DatagramPacket(buffer, buffer.length);
-            Globals.debug("queryForContent: Waiting for packet");
+            Globals.debug("C: queryForContent: Waiting for packet");
             ds.setSoTimeout(timeout_time);
             ds.receive(p);
             ds.close();
 
             String data = new String(p.getData());
+            String split[] = data.split(" ");
+            if(split.length < 2)
+            {
+                Globals.error("C: queryForContent: Attempt to split invalid string");
+                continue;
+            }
             type = data.split(" ")[2];
             type = type.replaceAll("\n", "");
             type = type.replaceAll("\r", "");
-            Globals.debug("C: Received Packet:\n" + data);
-            Globals.debug("Type: '" + type + "'");
+            Globals.debug("C: Received Packet:\n---\n" + data + "\n----");
             if(!type.equalsIgnoreCase(Packet.PacketType.FIN.toString()))
             {
                 packets.add(p);
@@ -556,12 +561,11 @@ private void QueryForContentActionPerformed(java.awt.event.ActionEvent evt) {//G
 
         DatagramPacket packet = Packet.assemblePackets(packets);
 
-        Globals.debug("CLIENT: RECEIVED PACKET: " + new String(packet.getData()));
+        Globals.debug("C: Received Packet:\n---\n" + new String(packet.getData()) + "\n---");
         directory.clear();
-        String header[] = new String(packet.getData()).split(Packet.CRLF);
+        String header[] = new String(packet.getData()).split(Globals.CRLF);
         for(int i = 1; i < header.length; ++i)
         {
-            Globals.debug("File " + i + " : " + header[i]);
             String splat[] = header[i].split(";");
             if(splat.length < 2)
                 continue;
@@ -583,17 +587,17 @@ private void QueryForContentActionPerformed(java.awt.event.ActionEvent evt) {//G
         num_timeouts++;
         if(num_timeouts > 5)
         {
-            Globals.error("Client: Query fully timed out. Aborting.", true);
+            Globals.error("C: Packet fully timed out in query.", true);
             return;
         }
         
-        Globals.debug("CLIENT: Query Packet Response LOST!");
+        Globals.debug("C: ACK for query timed out");
     }
     catch(Exception ex)
     {
         if(ds != null)
             ds.close();
-        Globals.debug("QueryForContent: " + ex);
+        Globals.exception(ex, "C:QueryForContent()");
         return;
     }
 
@@ -611,10 +615,7 @@ private void formWindowClosing(java.awt.event.WindowEvent evt)//GEN-FIRST:event_
 
 private void RateContentActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_RateContentActionPerformed
 {//GEN-HEADEREND:event_RateContentActionPerformed
-
     rateFrame.setVisible(true);
-
-
 }//GEN-LAST:event_RateContentActionPerformed
 
 private void downloadButtonActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_downloadButtonActionPerformed
@@ -642,7 +643,7 @@ private void downloadButtonActionPerformed(java.awt.event.ActionEvent evt)//GEN-
     }
     catch(Exception ex)
     {
-        Globals.debug("downloadButtonActionPerformed(): " + ex);
+        Globals.exception(ex, "C:downloadButtonActionPerformed()");
     }
 }//GEN-LAST:event_downloadButtonActionPerformed
 

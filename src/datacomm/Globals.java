@@ -6,12 +6,13 @@ import javax.swing.JOptionPane;
 
 public abstract class Globals
 {
-    public static int BUF_SIZE = 128;
+    public static final int BUF_SIZE = 128;
+    public static final String CRLF = System.getProperty("line.separator") + " ";
 
-    public static int SERVER_WELCOME_PORT = 40110;
-    public static int BASE_PORT = 16000;
+    public static final int SERVER_WELCOME_PORT = 40110;
+    public static final int BASE_PORT = 16000;
 
-    public static String HEADER_APPEND = "#%";
+    public static final String HEADER_APPEND = "#%";
 
     public static boolean DEBUG = true;
 
@@ -72,6 +73,7 @@ public abstract class Globals
             msg = "ERROR: " + msg;
         str.println(msg);
     }
+    
     public static void sendMessage(MessageType type, String title, Object message)
     {
         int message_type = -1;

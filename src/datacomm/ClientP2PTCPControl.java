@@ -89,7 +89,7 @@ public class ClientP2PTCPControl implements Runnable
         }
         catch(Exception ex)
         {
-            Globals.debug("requestFile(): " + ex);
+            Globals.exception(ex, "C:requestFile()");
         }
     }
 
@@ -114,7 +114,7 @@ public class ClientP2PTCPControl implements Runnable
         }
         catch(Exception ex)
         {
-            Globals.debug("transmitFile() - " + ex);
+            Globals.exception(ex, "C:transmitFile()");
         }
     }
 
@@ -122,8 +122,5 @@ public class ClientP2PTCPControl implements Runnable
     {
         send_hostname = hostname;
         send_port = port;
-
-        Globals.debug("Hostname set to: " + hostname);
-        Globals.debug("Port set to: " + port);
     }
 }
