@@ -632,10 +632,18 @@ private void downloadButtonActionPerformed(java.awt.event.ActionEvent evt)//GEN-
     }
 
     DirectoryListEntry entry = directory.get(directoryList.getSelectedIndex());
-    
-    tcp.setTransmitInfo(entry.getAddress(), entry.getPort());
-    tcp.requestFile(entry);
-    //tcp.transmitFile(f);
+
+    try
+    {
+        String ip = InetAddress.getLocalHost().getHostAddress();
+
+        tcp.setTransmitInfo(entry.getAddress(), entry.getPort());
+        tcp.requestFile(entry, ip, listen_port);
+    }
+    catch(Exception ex)
+    {
+        Globals.debug("downloadButtonActionPerformed(): " + ex);
+    }
 }//GEN-LAST:event_downloadButtonActionPerformed
 
 

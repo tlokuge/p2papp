@@ -17,6 +17,19 @@ public abstract class Globals
 
     public static boolean isInDebugMode() { return DEBUG; }
 
+    public static String normalize(String str)
+    {
+        String normalized = "";
+        for(int i = 0; i < str.length(); ++i)
+        {
+            char ch = str.charAt(i);
+            if(Character.isLetter(str.charAt(i)) || Character.isDigit(ch))
+                normalized += ch;
+        }
+
+        return normalized;
+    }
+
     public static void debug(Object debug)
     {
         if(isInDebugMode())

@@ -273,10 +273,6 @@ class DirectoryServer extends JFrame
 
                 case ACK:
                     break;
-
-                case NACK:
-                    break;
-
             }
         }
 

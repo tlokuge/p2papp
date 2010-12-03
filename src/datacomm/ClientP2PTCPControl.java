@@ -40,14 +40,32 @@ public class ClientP2PTCPControl implements Runnable
 
             byte[] buffer = new byte[128];
             InputStream is = socket.getInputStream();
+            is.read(buffer);
 
-            BufferedOutputStream bs = new BufferedOutputStream(new FileOutputStream(new File("temp.jpeg")));
-            while(is.read(buffer) != -1)
-                bs.write(buffer);
+            String packet = new String(buffer);
+            String split[] = packet.split(";");
+            String type = packet.split(";")[0];
+            if(type.equalsIgnoreCase("GET"))
+            {
+                String filename = split[1];
+                String host = split[2];
+                String port = Globals.normalize(split[3]);
+                setTransmitInfo(split[2], Integer.parseInt(port));
 
-            is.close();
-            bs.flush();
-            bs.close();
+                File f = new File(filename);
+                if(f == null || f.exists())
+                    transmitFile(f);
+            }
+            else if(type.equalsIgnoreCase("TRANSMIT"))
+            {
+                BufferedOutputStream bs = new BufferedOutputStream(new FileOutputStream(new File("temp.jpeg")));
+                while(is.read(buffer) != -1)
+                    bs.write(buffer);
+
+                is.close();
+                bs.flush();
+                bs.close();
+            }
         }
         catch(Exception ex)
         {
@@ -55,17 +73,23 @@ public class ClientP2PTCPControl implements Runnable
         }
     }
 
-    public void requestFile(DirectoryListEntry file)
+    public void requestFile(DirectoryListEntry file, String hostname, int port)
     {
         try
         {
             Socket socket = new Socket(send_hostname, send_port);
 
-            
+            OutputStream os = socket.getOutputStream();
+
+            String data = "GET;" + file.getFile() + ";" + hostname + ";" + port;
+            os.write(data.getBytes());
+
+            os.flush();
+            os.close();
         }
         catch(Exception ex)
         {
-
+            Globals.debug("requestFile(): " + ex);
         }
     }
 
@@ -80,6 +104,7 @@ public class ClientP2PTCPControl implements Runnable
             BufferedInputStream bs = new BufferedInputStream(new FileInputStream(f));
             byte[] buffer = new byte[128];
             int bytesRead = 0;
+            os.write("TRANSMIT;\n".getBytes());
             while((bytesRead = bs.read(buffer)) != -1)
                 os.write(buffer);
             
