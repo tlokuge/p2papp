@@ -13,11 +13,11 @@ import javax.swing.filechooser.FileFilter;
  *
  * @author  l3whalen
  */
-public class UI extends javax.swing.JFrame
+public class Client extends javax.swing.JFrame
 {
 
-    /** Creates new form UI */
-    public UI()
+    /** Creates new form Client */
+    public Client()
     {
         listen_port = 16000 + new Random().nextInt(1000);
         directory = new ArrayList();
@@ -670,7 +670,7 @@ private void downloadButtonActionPerformed(java.awt.event.ActionEvent evt)//GEN-
         {
             public void run()
             {
-                new UI().setVisible(true);
+                new Client().setVisible(true);
             }
         });
     }
