@@ -1,7 +1,7 @@
 
 package datacomm;
 
-import java.awt.BorderLayout;
+import java.awt.*;
 import java.awt.event.*;
 import javax.swing.*;
 
@@ -32,7 +32,7 @@ public class Main extends JFrame
     public void initComponents()
     {
         spawnServerButton = new JButton("Spawn Server");
-        spawnClientButton = new JButton("Client Server");
+        spawnClientButton = new JButton("Spawn Client");
 
         class spawnServerListener implements ActionListener
         {

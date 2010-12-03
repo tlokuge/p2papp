@@ -53,6 +53,7 @@ public class ClientP2PTCPControl implements Runnable
             String packet = new String(buffer);
             String split[] = packet.split(";");
             String type = split[0];
+            debug("TCP: Received " + type);
             if(type.equalsIgnoreCase("GET"))
             {
                 String filename = split[1];
@@ -66,6 +67,7 @@ public class ClientP2PTCPControl implements Runnable
             }
             else if(type.equalsIgnoreCase("TRANSMIT"))
             {
+                debug("Receiving file....");
                 File directory = new File(client_name);
                 if(directory == null || !directory.exists())
                     directory.mkdir();
@@ -78,11 +80,14 @@ public class ClientP2PTCPControl implements Runnable
                 is.close();
                 bs.flush();
                 bs.close();
+
+                debug("Received file!");
+                Globals.output("Received file!", true);
             }
         }
         catch(Exception ex)
         {
-            debug("Listen(): " + ex);
+            Globals.exception(ex, "TCP - Listen(): ");
         }
     }
 
@@ -95,6 +100,7 @@ public class ClientP2PTCPControl implements Runnable
             OutputStream os = socket.getOutputStream();
 
             String data = "GET;" + file.getFile() + ";" + hostname + ";" + port;
+            debug("TCP: RequestingFile. Sending data packet:\n---\n" + data + "\n---");
             os.write(data.getBytes());
 
             os.flush();
@@ -117,6 +123,7 @@ public class ClientP2PTCPControl implements Runnable
             byte[] buffer = new byte[128];
             int bytesRead = 0;
             String header = "TRANSMIT;" + f.getName() + ";\n";
+            debug("TCP: Transmitting file with packet header:" + header);
             os.write(header.getBytes());
             while((bytesRead = bs.read(buffer)) != -1)
                 os.write(buffer);
@@ -125,6 +132,7 @@ public class ClientP2PTCPControl implements Runnable
             os.close();
             bs.close();
 
+            debug("File transferred!");
             Globals.output("File transferred!", true);
         }
         catch(Exception ex)

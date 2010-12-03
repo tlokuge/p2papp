@@ -1,10 +1,7 @@
 package datacomm;
 
-import java.net.DatagramPacket;
-import java.net.InetAddress;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
+import java.net.*;
+import java.util.*;
 import javax.swing.text.Segment;
 
 public class Packet

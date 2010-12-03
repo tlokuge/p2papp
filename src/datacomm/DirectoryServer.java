@@ -4,12 +4,10 @@ package datacomm;
  *
  * @author l3whalen
  */
-import java.awt.BorderLayout;
-import java.awt.GridLayout;
+import java.awt.*;
 import java.net.*;
 import java.util.*;
 import javax.swing.*;
-import javax.swing.border.EtchedBorder;
 
 class DirectoryServer extends JFrame
 {
@@ -56,7 +54,6 @@ class DirectoryServer extends JFrame
 
         private ArrayList<DatagramPacket> packets;
         public ArrayList<Integer> received_segNums;
-
 
         private InetAddress client_inet;
         private int client_port;
@@ -156,7 +153,7 @@ class DirectoryServer extends JFrame
                 if(socket != null)
                     socket.close();
 
-                Globals.exception(ex, "S:sendWelcomeReply()");
+                Globals.exception(ex, "S: sendWelcomeReply()");
             }
         }
 
@@ -371,6 +368,7 @@ class DirectoryServer extends JFrame
 
     private synchronized void printDirectory()
     {
+        debug("S: PRINTING DIRECTORY");
         for(DirectoryListEntry entry : directory)
             debug(entry);
     }
